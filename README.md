@@ -1,5 +1,3 @@
-Here is a sample GitHub README for your code:
-
 # Workout-AGiXT
 
 A comprehensive workout app powered by AGiXT that helps users track their fitness journey.
