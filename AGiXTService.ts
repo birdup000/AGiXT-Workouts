@@ -10,6 +10,8 @@ export interface UserProfile {
   goal: string;
   fitnessLevel: string;
   daysPerWeek: string;
+  bio: string;
+  interests: string;
 }
 
 export interface Exercise {
@@ -17,7 +19,7 @@ export interface Exercise {
   sets: number;
   reps: string;
   rest: string;
-  text?: string; // Added text field
+  text?: string;
 }
 
 export interface DayPlan {
@@ -35,15 +37,41 @@ export interface WorkoutPlanResponse {
   workoutPlan: WorkoutPlan;
 }
 
+export interface Challenge {
+  id: number;
+  name: string;
+  description: string;
+  completed: boolean;
+}
+
+export interface Supplement {
+  id: number;
+  name: string;
+  dosage: string;
+}
+
+export interface MealPlan {
+  breakfast: string;
+  lunch: string;
+  dinner: string;
+  snacks: string[];
+}
+
+export interface CustomExercise {
+  id: number;
+  name: string;
+  description: string;
+}
+
 class AGiXTService {
   private baseUri: string;
   private headers: { [key: string]: string };
   private agentName: string = 'WorkoutAgent';
 
   constructor() {
-    this.baseUri = 'your-agixt-uri';
+    this.baseUri = 'http://localhost:7437';
     this.headers = {
-      'Authorization': 'Bearer your-agixt-api-key',
+      'Authorization': 'Bearer your-api-key-here',
       'Content-Type': 'application/json',
     };
   }
@@ -146,7 +174,6 @@ class AGiXTService {
             jsonResponse = JSON.parse(match[0]);
           } catch (innerError) {
             console.error("Failed to parse extracted JSON:", innerError);
-            // Attempt to parse as much valid JSON as possible
             try {
               const truncatedResponse = response.substring(0, response.lastIndexOf('}') + 1);
               jsonResponse = JSON.parse(truncatedResponse);
@@ -165,7 +192,6 @@ class AGiXTService {
           jsonResponse = JSON.parse(response.response);
         } catch (error) {
           console.error("Failed to parse response.response as JSON:", error);
-          // Attempt to parse as much valid JSON as possible
           try {
             const truncatedResponse = response.response.substring(0, response.response.lastIndexOf('}') + 1);
             jsonResponse = JSON.parse(truncatedResponse);
@@ -274,6 +300,63 @@ class AGiXTService {
     }).join('\n\n');
 
     return `${summary}\n\nNutrition Advice:\n${workoutPlan.nutritionAdvice}`;
+  }
+
+  async getChallenges(userProfile: UserProfile): Promise<Challenge[]> {
+    const prompt = `Generate 3 fitness challenges for a ${userProfile.gender} aged ${userProfile.age} with a fitness level of ${userProfile.fitnessLevel} and a goal of ${userProfile.goal}. Format the response as a JSON array of objects, each with 'id', 'name', 'description', and 'completed' (set to false) properties.`;
+    
+    const response = await this.chat(this.agentName, prompt, 'challenges');
+    return this.parseJsonResponse(response);
+  }
+
+  async getSupplements(userProfile: UserProfile): Promise<Supplement[]> {
+    const prompt = `Recommend 3 supplements for a ${userProfile.gender} aged ${userProfile.age} with a fitness level of ${userProfile.fitnessLevel} and a goal of ${userProfile.goal}. Format the response as a JSON array of objects, each with 'id', 'name', and 'dosage' properties.`;
+    
+    const response = await this.chat(this.agentName, prompt, 'supplements');
+    return this.parseJsonResponse(response);
+  }
+
+  async getMealPlan(userProfile: UserProfile): Promise<MealPlan> {
+    const prompt = `Create a meal plan for a ${userProfile.gender} aged ${userProfile.age}, weight ${userProfile.weight} lbs, with a fitness goal of ${userProfile.goal}. Include breakfast, lunch, dinner, and two snacks. Format the response as a JSON object with 'breakfast', 'lunch', 'dinner', and 'snacks' (array) properties.`;
+    
+    const response = await this.chat(this.agentName, prompt, 'mealplan');
+    return this.parseJsonResponse(response);
+  }
+
+  async addCustomExercise(userProfile: UserProfile, exercise: { name: string, description: string }): Promise<CustomExercise[]> {
+    const prompt = `Add a custom exercise named "${exercise.name}" with description "${exercise.description}" to the user's profile. Then, return a list of all custom exercises including this new one. Format the response as a JSON array of objects, each with 'id', 'name', and 'description' properties.`;
+    
+    const response = await this.chat(this.agentName, prompt, 'customexercises');
+    return this.parseJsonResponse(response);
+  }
+
+  async adjustWorkoutPlan(userProfile: UserProfile, currentPlan: WorkoutPlanResponse, sorenessLevel: string): Promise<WorkoutPlanResponse> {
+    const prompt = `Adjust the following workout plan based on a soreness level of ${sorenessLevel}:
+    ${JSON.stringify(currentPlan.workoutPlan, null, 2)}
+    
+    Reduce intensity for high soreness, maintain for medium, and slightly increase for low. Format the response as a JSON object matching the original structure.`;
+    
+    const response = await this.chat(this.agentName, prompt, 'adjustworkout');
+    const adjustedPlan = this.parseJsonResponse(response);
+    return { ...currentPlan, workoutPlan: adjustedPlan };
+  }
+
+  private parseJsonResponse(response: any): any {
+    if (typeof response === 'string') {
+      try {
+        return JSON.parse(response);
+      } catch (error) {
+        console.error("Failed to parse response as JSON:", error);
+        const match = response.match(/\{[\s\S]*\}/);
+        if (match) {
+          return JSON.parse(match[0]);
+        }
+        throw new Error("No valid JSON found in the response");
+      }
+    } else if (typeof response === 'object' && response !== null) {
+      return response.response ? JSON.parse(response.response) : response;
+    }
+    throw new Error("Response is neither a string nor an object");
   }
 }
 
