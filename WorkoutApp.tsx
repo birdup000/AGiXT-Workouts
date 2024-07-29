@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Image, Modal, Alert } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Audio } from 'expo-av';
 import AGiXTService, { UserProfile, WorkoutPlanResponse, Challenge, Supplement, MealPlan, CustomExercise } from './AGiXTService';
@@ -114,9 +116,13 @@ const WorkoutApp = () => {
 
     try {
       const response = await agixtService.createWorkoutPlan(userProfile);
-      setWorkoutPlan(response);
-      setPoints(points + 10);
-      checkAchievements();
+      if (response && response.workoutPlan) {
+        setWorkoutPlan(response);
+        setPoints(points + 10);
+        checkAchievements();
+      } else {
+        setError('Invalid workout plan received');
+      }
     } catch (err) {
       setError('Failed to generate workout plan');
       console.error(err);
@@ -228,479 +234,459 @@ const WorkoutApp = () => {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.header}>AGiXT Fitness Pro</Text>
+    <LinearGradient colors={['#0f0c29', '#302b63', '#24243e']} style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.header}>
+          {profileImage ? (
+            <Image source={{ uri: profileImage }} style={styles.profileImage} />
+          ) : (
+            <Ionicons name="person-circle-outline" size={80} color="#f1c40f" />
+          )}
+          <Text style={styles.headerText}>Welcome, {userProfile.name || 'Fitness Warrior'}</Text>
+        </View>
 
-      <TouchableOpacity style={styles.button} onPress={() => setProfileModalVisible(true)}>
-        <Text style={styles.buttonText}>Edit Profile</Text>
-      </TouchableOpacity>
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <Ionicons name="medal-outline" size={24} color="#f1c40f" />
+            <Text style={styles.statValue}>{points}</Text>
+            <Text style={styles.statLabel}>Points</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Ionicons name="barbell-outline" size={24} color="#f1c40f" />
+            <Text style={styles.statValue}>{workoutPlan?.workoutPlan?.weeklyPlan?.length || 0}</Text>
+            <Text style={styles.statLabel}>Workouts</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Ionicons name="flame-outline" size={24} color="#f1c40f" />
+            <Text style={styles.statValue}>{challenges.length}</Text>
+            <Text style={styles.statLabel}>Challenges</Text>
+          </View>
+        </View>
 
-      <TouchableOpacity style={styles.button} onPress={generateWorkoutPlan}>
-        <Text style={styles.buttonText}>Generate Workout Plan</Text>
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.button} onPress={generateWorkoutPlan}>
+          <Ionicons name="fitness-outline" size={24} color="#121212" />
+          <Text style={styles.buttonText}>Generate Workout Plan</Text>
+        </TouchableOpacity>
 
-      <View style={styles.featuresContainer}>
-        <TouchableOpacity style={styles.featureButton} onPress={() => Alert.alert('Gamification', `Points: ${points}`)}>
-          <Text style={styles.featureButtonText}>View Points</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.featureButton} onPress={() => setChallengesModalVisible(true)}>
-          <Text style={styles.featureButtonText}>Challenges</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.featureButton} onPress={() => Alert.alert('Smart Equipment', `Connected: ${connectedEquipment.map(e => e.name).join(', ')}`)}>
-          <Text style={styles.featureButtonText}>Smart Equipment</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.featureButton} onPress={startVoiceControl}>
-          <Text style={styles.featureButtonText}>{isListening ? 'Listening...' : 'Start Voice Control'}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.featureButton} onPress={() => setSupplementsModalVisible(true)}>
-          <Text style={styles.featureButtonText}>Supplement Plan</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.featureButton} onPress={() => setCustomExerciseModalVisible(true)}>
-          <Text style={styles.featureButtonText}>Create Exercise</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.featureButton} onPress={trackSoreness}>
-          <Text style={styles.featureButtonText}>Track Soreness</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.featureButton} onPress={() => setMealPlanModalVisible(true)}>
-          <Text style={styles.featureButtonText}>View Meal Plan</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.featureButton} onPress={() => setBmiModalVisible(true)}>
-          <Text style={styles.featureButtonText}>Calculate BMI</Text>
-        </TouchableOpacity>
-      </View>
+        <View style={styles.actionButtons}>
+          <TouchableOpacity style={styles.actionButton} onPress={() => setProfileModalVisible(true)}>
+            <Ionicons name="person-outline" size={24} color="#f1c40f" />
+            <Text style={styles.actionButtonText}>Edit Profile</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionButton} onPress={() => setBmiModalVisible(true)}>
+            <Ionicons name="calculator-outline" size={24} color="#f1c40f" />
+            <Text style={styles.actionButtonText}>BMI</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionButton} onPress={() => setChallengesModalVisible(true)}>
+            <Ionicons name="trophy-outline" size={24} color="#f1c40f" />
+            <Text style={styles.actionButtonText}>Challenges</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionButton} onPress={() => setMealPlanModalVisible(true)}>
+            <Ionicons name="nutrition-outline" size={24} color="#f1c40f" />
+            <Text style={styles.actionButtonText}>Meal Plan</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionButton} onPress={() => setSupplementsModalVisible(true)}>
+            <Ionicons name="flask-outline" size={24} color="#f1c40f" />
+            <Text style={styles.actionButtonText}>Supplements</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionButton} onPress={() => setCustomExerciseModalVisible(true)}>
+            <Ionicons name="add-circle-outline" size={24} color="#f1c40f" />
+            <Text style={styles.actionButtonText}>Custom Exercise</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionButton} onPress={startVoiceControl}>
+            <Ionicons name="mic-outline" size={24} color="#f1c40f" />
+            <Text style={styles.actionButtonText}>Voice Control</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionButton} onPress={trackSoreness}>
+            <Ionicons name="body-outline" size={24} color="#f1c40f" />
+            <Text style={styles.actionButtonText}>Track Soreness</Text>
+          </TouchableOpacity>
+        </View>
 
-      {loading && <ActivityIndicator size="large" color="#f1c40f" style={styles.loading} />}
-      {error && <Text style={styles.error}>{error}</Text>}
-      
-      {workoutPlan && (
-        <View style={styles.workoutPlan}>
-          <Text style={styles.planHeader}>Workout Plan:</Text>
-          {workoutPlan.workoutPlan.weeklyPlan.map((dayPlan, index) => (
-            <View key={index} style={styles.dayPlan}>
-              <Text style={styles.dayHeader}>{dayPlan.day}</Text>
-              {dayPlan.exercises.map((exercise, exIndex) => (
-                <View key={exIndex} style={styles.exercise}>
-                  <Text style={styles.exerciseName}>{exercise.name}</Text>
-                  <Text style={styles.exerciseDetail}>Sets: {exercise.sets}</Text>
-                  <Text style={styles.exerciseDetail}>Reps: {exercise.reps}</Text>
-                  <Text style={styles.exerciseDetail}>Rest: {exercise.rest}</Text>
-                  <Text style={styles.exerciseDetail}>Details: {exercise.text}</Text>
+        {loading && <ActivityIndicator size="large" color="#f1c40f" style={styles.loading} />}
+        {error && <Text style={styles.error}>{error}</Text>}
+        
+        {workoutPlan && workoutPlan.workoutPlan && workoutPlan.workoutPlan.weeklyPlan && (
+          <View style={styles.workoutPlanContainer}>
+            <Text style={styles.planTitle}>Workout Plan:</Text>
+            {workoutPlan.workoutPlan.weeklyPlan.map((dayPlan, index) => (
+              <View key={index} style={styles.dayPlan}>
+                <Text style={styles.dayHeader}>{dayPlan.day}</Text>
+                {dayPlan.exercises.map((exercise, exIndex) => (
+                  <View key={exIndex} style={styles.exercise}>
+                    <Text style={styles.exerciseName}>{exercise.name}</Text>
+                    <Text style={styles.exerciseDetail}>Sets: {exercise.sets}</Text>
+                    <Text style={styles.exerciseDetail}>Reps: {exercise.reps}</Text>
+                    <Text style={styles.exerciseDetail}>Rest: {exercise.rest}</Text>
+                    <Text style={styles.exerciseDetail}>Details: {exercise.text}</Text>
+                  </View>
+                ))}
+              </View>
+            ))}
+            <Text style={styles.nutritionAdvice}>Nutrition Advice: {workoutPlan.workoutPlan.nutritionAdvice}</Text>
+          </View>
+        )}
+
+        {bmiHistory.length > 0 && (
+          <View style={styles.chartContainer}>
+            <Text style={styles.chartTitle}>BMI History</Text>
+            <LineChart
+              data={{
+                labels: bmiHistory.map(entry => new Date(entry.date).toLocaleDateString()),
+                datasets: [
+                  {
+                    data: bmiHistory.map(entry => entry.bmi),
+                    color: (opacity = 1) => `rgba(241, 196, 15, ${opacity})`,
+                    strokeWidth: 2,
+                  },
+                ],
+              }}
+              width={320}
+              height={220}
+              chartConfig={{
+                backgroundColor: '#1e1e1e',
+                backgroundGradientFrom: '#302b63',
+                backgroundGradientTo: '#24243e',
+                decimalPlaces: 1,
+                color: (opacity = 1) => `rgba(241, 196, 15, ${opacity})`,
+                labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+                style: {
+                  borderRadius: 16,
+                },
+                propsForDots: {
+                  r: '6',
+                  strokeWidth: '2',
+                  stroke: '#f1c40f',
+                },
+              }}
+              bezier
+              style={styles.chart}
+            />
+            <Text style={styles.bmiCategory}>
+              Current BMI Category: {getBmiCategory(bmiHistory[bmiHistory.length - 1].bmi)}
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.motivationSection}>
+          <Text style={styles.sectionHeader}>Motivation</Text>
+          <View style={styles.quoteContainer}>
+            <Text style={styles.quote}>"The only bad workout is the one that didn't happen."</Text>
+          </View>
+          <View style={styles.quoteContainer}>
+            <Text style={styles.quote}>"Push yourself, because no one else is going to do it for you."</Text>
+          </View>
+        </View>
+
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={profileModalVisible}
+          onRequestClose={() => setProfileModalVisible(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalHeader}>Edit Profile</Text>
+              <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
+                {profileImage ? (
+                  <Image source={{ uri: profileImage }} style={styles.profileImage} />
+                ) : (
+                  <Text style={styles.imagePickerText}>Upload Profile Picture</Text>
+                )}
+              </TouchableOpacity>
+              <View style={styles.inputContainer}>
+                {Object.keys(userProfile).map((key) => (
+                  <TextInput
+                    key={key}
+                    style={styles.input}
+                    placeholder={key.charAt(0).toUpperCase() + key.slice(1)}
+                    value={userProfile[key as keyof UserProfile]}
+                    onChangeText={(text) => handleInputChange(key as keyof UserProfile, text)}
+                    placeholderTextColor="#ccc"
+                    keyboardType={key === 'age' || key === 'weight' || key === 'feet' || key === 'inches' || key === 'daysPerWeek' ? 'numeric' : 'default'}
+                  />
+                ))}
+              </View>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => setProfileModalVisible(false)}
+              >
+                <Text style={styles.modalButtonText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={bmiModalVisible}
+          onRequestClose={() => setBmiModalVisible(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalHeader}>Calculate BMI</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Current Weight (lbs)"
+                value={currentWeight}
+                onChangeText={setCurrentWeight}
+                keyboardType="numeric"
+                placeholderTextColor="#ccc"
+              />
+              <TouchableOpacity style={styles.modalButton} onPress={calculateBMI}>
+                <Text style={styles.modalButtonText}>Calculate</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalButton} onPress={() => setBmiModalVisible(false)}>
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={challengesModalVisible}
+          onRequestClose={() => setChallengesModalVisible(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalHeader}>Challenges</Text>
+              {challenges.map((challenge) => (
+                <View key={challenge.id} style={styles.challengeItem}>
+                  <Text style={styles.challengeName}>{challenge.name}</Text>
+                  <Text style={styles.challengeDescription}>{challenge.description}</Text>
+                  <TouchableOpacity
+                    style={[styles.challengeButton, challenge.completed && styles.challengeCompleted]}
+                    onPress={() => {/* Implement challenge completion logic */}}
+                  >
+                    <Text style={styles.challengeButtonText}>
+                      {challenge.completed ? 'Completed' : 'Complete'}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               ))}
+              <TouchableOpacity style={styles.modalButton} onPress={() => setChallengesModalVisible(false)}>
+                <Text style={styles.modalButtonText}>Close</Text>
+              </TouchableOpacity>
             </View>
-          ))}
-          <Text style={styles.nutritionAdvice}>Nutrition Advice: {workoutPlan.workoutPlan.nutritionAdvice}</Text>
-        </View>
-      )}
+          </View>
+        </Modal>
 
-      {bmiHistory.length > 0 && (
-        <View style={styles.chartContainer}>
-          <Text style={styles.chartTitle}>BMI History</Text>
-          <LineChart
-            data={{
-              labels: bmiHistory.map(entry => new Date(entry.date).toLocaleDateString()),
-              datasets: [
-                {
-                  data: bmiHistory.map(entry => entry.bmi),
-                  color: (opacity = 1) => `rgba(255, 204, 0, ${opacity})`,
-                  strokeWidth: 2,
-                },
-              ],
-            }}
-            width={320}
-            height={220}
-            chartConfig={{
-              backgroundColor: '#1e1e1e',
-              backgroundGradientFrom: '#1e1e1e',
-              backgroundGradientTo: '#1e1e1e',
-              decimalPlaces: 1,
-              color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-              labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-              style: {
-                borderRadius: 16,
-              },
-              propsForDots: {
-                r: '6',
-                strokeWidth: '2',
-                stroke: '#f1c40f',
-              },
-            }}
-            bezier
-            style={styles.chart}
-          />
-          <Text style={styles.bmiCategory}>
-            Current BMI Category: {getBmiCategory(bmiHistory[bmiHistory.length - 1].bmi)}
-          </Text>
-        </View>
-      )}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={supplementsModalVisible}
+          onRequestClose={() => setSupplementsModalVisible(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalHeader}>Supplement Plan</Text>
+              {supplements.map((supplement) => (
+                <View key={supplement.id} style={styles.supplementItem}>
+                  <Text style={styles.supplementName}>{supplement.name}</Text>
+                  <Text style={styles.supplementDosage}>{supplement.dosage}</Text>
+                </View>
+              ))}
+              <TouchableOpacity style={styles.modalButton} onPress={() => setSupplementsModalVisible(false)}>
+                <Text style={styles.modalButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
-      <View style={styles.motivationSection}>
-        <Text style={styles.sectionHeader}>Motivation</Text>
-        <View style={styles.quoteContainer}>
-          <Text style={styles.quote}>"The only bad workout is the one that didn't happen."</Text>
-        </View>
-        <View style={styles.quoteContainer}>
-          <Text style={styles.quote}>"Push yourself, because no one else is going to do it for you."</Text>
-        </View>
-      </View>
-
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={profileModalVisible}
-        onRequestClose={() => setProfileModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalHeader}>Edit Profile</Text>
-            <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
-              {profileImage ? (
-                <Image source={{ uri: profileImage }} style={styles.profileImage} />
-              ) : (
-                <Text style={styles.imagePickerText}>Upload Profile Picture</Text>
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={mealPlanModalVisible}
+          onRequestClose={() => setMealPlanModalVisible(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalHeader}>Meal Plan</Text>
+              {mealPlan && (
+                <>
+                  <Text style={styles.mealHeader}>Breakfast:</Text>
+                  <Text style={styles.mealContent}>{mealPlan.breakfast}</Text>
+                  <Text style={styles.mealHeader}>Lunch:</Text>
+                  <Text style={styles.mealContent}>{mealPlan.lunch}</Text>
+                  <Text style={styles.mealHeader}>Dinner:</Text>
+                  <Text style={styles.mealContent}>{mealPlan.dinner}</Text>
+                  <Text style={styles.mealHeader}>Snacks:</Text>
+                  {mealPlan.snacks.map((snack, index) => (
+                    <Text key={index} style={styles.mealContent}>{snack}</Text>
+                  ))}
+                </>
               )}
-            </TouchableOpacity>
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.input}
-                placeholder="Name"
-                value={userProfile.name}
-                onChangeText={(text) => handleInputChange('name', text)}
-                placeholderTextColor="#ccc"
-              />
-<TextInput
-                style={styles.input}
-                placeholder="Age"
-                value={userProfile.age}
-                onChangeText={(text) => handleInputChange('age', text)}
-                keyboardType="numeric"
-                placeholderTextColor="#ccc"
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Gender"
-                value={userProfile.gender}
-                onChangeText={(text) => handleInputChange('gender', text)}
-                placeholderTextColor="#ccc"
-              />
-              <View style={styles.row}>
-                <TextInput
-                  style={[styles.input, styles.inputHalf]}
-                  placeholder="Feet"
-                  value={userProfile.feet}
-                  onChangeText={(text) => handleInputChange('feet', text)}
-                  keyboardType="numeric"
-                  placeholderTextColor="#ccc"
-                />
-                <TextInput
-                  style={[styles.input, styles.inputHalf]}
-                  placeholder="Inches"
-                  value={userProfile.inches}
-                  onChangeText={(text) => handleInputChange('inches', text)}
-                  keyboardType="numeric"
-                  placeholderTextColor="#ccc"
-                />
-              </View>
-              <TextInput
-                style={styles.input}
-                placeholder="Weight (lbs)"
-                value={userProfile.weight}
-                onChangeText={(text) => handleInputChange('weight', text)}
-                keyboardType="numeric"
-                placeholderTextColor="#ccc"
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Goal"
-                value={userProfile.goal}
-                onChangeText={(text) => handleInputChange('goal', text)}
-                placeholderTextColor="#ccc"
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Fitness Level"
-                value={userProfile.fitnessLevel}
-                onChangeText={(text) => handleInputChange('fitnessLevel', text)}
-                placeholderTextColor="#ccc"
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Days Per Week"
-                value={userProfile.daysPerWeek}
-                onChangeText={(text) => handleInputChange('daysPerWeek', text)}
-                keyboardType="numeric"
-                placeholderTextColor="#ccc"
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Bio"
-                value={userProfile.bio}
-                onChangeText={(text) => handleInputChange('bio', text)}
-                placeholderTextColor="#ccc"
-                multiline
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Interests"
-                value={userProfile.interests}
-                onChangeText={(text) => handleInputChange('interests', text)}
-                placeholderTextColor="#ccc"
-              />
+              <TouchableOpacity style={styles.modalButton} onPress={() => setMealPlanModalVisible(false)}>
+                <Text style={styles.modalButtonText}>Close</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={() => setProfileModalVisible(false)}
-            >
-              <Text style={styles.modalButtonText}>Save</Text>
-            </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
+        </Modal>
 
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={bmiModalVisible}
-        onRequestClose={() => setBmiModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalHeader}>Calculate BMI</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Current Weight (lbs)"
-              value={currentWeight}
-              onChangeText={setCurrentWeight}
-              keyboardType="numeric"
-              placeholderTextColor="#ccc"
-            />
-            <TouchableOpacity style={styles.modalButton} onPress={calculateBMI}>
-              <Text style={styles.modalButtonText}>Calculate</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.modalButton} onPress={() => setBmiModalVisible(false)}>
-              <Text style={styles.modalButtonText}>Cancel</Text>
-            </TouchableOpacity>
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={customExerciseModalVisible}
+          onRequestClose={() => setCustomExerciseModalVisible(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalHeader}>Create Custom Exercise</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Exercise Name"
+                value={customExerciseName}
+                onChangeText={setCustomExerciseName}
+                placeholderTextColor="#ccc"
+              />
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                placeholder="Exercise Description"
+                value={customExerciseDescription}
+                onChangeText={setCustomExerciseDescription}
+                multiline
+                numberOfLines={4}
+                placeholderTextColor="#ccc"
+              />
+              <TouchableOpacity style={styles.modalButton} onPress={createCustomExercise}>
+                <Text style={styles.modalButtonText}>Create Exercise</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalButton} onPress={() => setCustomExerciseModalVisible(false)}>
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </Modal>
-
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={challengesModalVisible}
-        onRequestClose={() => setChallengesModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalHeader}>Challenges</Text>
-            {challenges.map((challenge) => (
-              <View key={challenge.id} style={styles.challengeItem}>
-                <Text style={styles.challengeName}>{challenge.name}</Text>
-                <Text style={styles.challengeDescription}>{challenge.description}</Text>
-                <TouchableOpacity
-                  style={[styles.challengeButton, challenge.completed && styles.challengeCompleted]}
-                  onPress={() => {/* Implement challenge completion logic */}}
-                >
-                  <Text style={styles.challengeButtonText}>
-                    {challenge.completed ? 'Completed' : 'Complete'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-            <TouchableOpacity style={styles.modalButton} onPress={() => setChallengesModalVisible(false)}>
-              <Text style={styles.modalButtonText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={supplementsModalVisible}
-        onRequestClose={() => setSupplementsModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalHeader}>Supplement Plan</Text>
-            {supplements.map((supplement) => (
-              <View key={supplement.id} style={styles.supplementItem}>
-                <Text style={styles.supplementName}>{supplement.name}</Text>
-                <Text style={styles.supplementDosage}>{supplement.dosage}</Text>
-              </View>
-            ))}
-            <TouchableOpacity style={styles.modalButton} onPress={() => setSupplementsModalVisible(false)}>
-              <Text style={styles.modalButtonText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={mealPlanModalVisible}
-        onRequestClose={() => setMealPlanModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalHeader}>Meal Plan</Text>
-            {mealPlan && (
-              <>
-                <Text style={styles.mealHeader}>Breakfast:</Text>
-                <Text style={styles.mealContent}>{mealPlan.breakfast}</Text>
-                <Text style={styles.mealHeader}>Lunch:</Text>
-                <Text style={styles.mealContent}>{mealPlan.lunch}</Text>
-                <Text style={styles.mealHeader}>Dinner:</Text>
-                <Text style={styles.mealContent}>{mealPlan.dinner}</Text>
-                <Text style={styles.mealHeader}>Snacks:</Text>
-                {mealPlan.snacks.map((snack, index) => (
-                  <Text key={index} style={styles.mealContent}>{snack}</Text>
-                ))}
-              </>
-            )}
-            <TouchableOpacity style={styles.modalButton} onPress={() => setMealPlanModalVisible(false)}>
-              <Text style={styles.modalButtonText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={customExerciseModalVisible}
-        onRequestClose={() => setCustomExerciseModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalHeader}>Create Custom Exercise</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Exercise Name"
-              value={customExerciseName}
-              onChangeText={setCustomExerciseName}
-              placeholderTextColor="#ccc"
-            />
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Exercise Description"
-              value={customExerciseDescription}
-              onChangeText={setCustomExerciseDescription}
-              multiline
-              numberOfLines={4}
-              placeholderTextColor="#ccc"
-            />
-            <TouchableOpacity style={styles.modalButton} onPress={createCustomExercise}>
-              <Text style={styles.modalButtonText}>Create Exercise</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.modalButton} onPress={() => setCustomExerciseModalVisible(false)}>
-              <Text style={styles.modalButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-    </ScrollView>
+        </Modal>
+      </ScrollView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flexGrow: 1,
-    padding: 16,
-    backgroundColor: '#121212',
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 20,
   },
   header: {
-    fontSize: 32,
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  headerText: {
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#f1c40f',
-    textAlign: 'center',
-    marginBottom: 20,
+    marginTop: 10,
+  },
+  profileImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 3,
+    borderColor: '#f1c40f',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 30,
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#f1c40f',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#fff',
   },
   button: {
     backgroundColor: '#f1c40f',
     padding: 15,
-    borderRadius: 8,
+    borderRadius: 25,
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
   },
   buttonText: {
     color: '#121212',
     fontWeight: 'bold',
+    fontSize: 18,
+    marginLeft: 10,
   },
-  loading: {
-    marginBottom: 20,
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    marginBottom: 30,
   },
-  error: {
-    color: 'red',
-    textAlign: 'center',
+  actionButton: {
+    backgroundColor: 'rgba(241, 196, 15, 0.1)',
+    padding: 15,
+    borderRadius: 15,
+    alignItems: 'center',
+    width: '48%',
     marginBottom: 10,
   },
-  workoutPlan: {
-    backgroundColor: '#1e1e1e',
-    padding: 20,
-    borderRadius: 10,
-    marginBottom: 20,
+  actionButtonText: {
+    color: '#f1c40f',
+    marginTop: 5,
   },
-  planHeader: {
+  workoutPlanContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 15,
+    padding: 20,
+    marginBottom: 30,
+  },
+  planTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#f1c40f',
-    marginBottom: 10,
+    marginBottom: 15,
   },
   dayPlan: {
     marginBottom: 15,
   },
   dayHeader: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#f1c40f',
-    marginBottom: 5,
-  },
-  exercise: {
-    marginBottom: 8,
-  },
-  exerciseName: {
     fontSize: 20,
     fontWeight: 'bold',
+    color: '#f1c40f',
+    marginBottom: 10,
+  },
+  exercise: {
+    marginBottom: 10,
+  },
+  exerciseName: {
     color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   exerciseDetail: {
     color: '#ccc',
+    fontSize: 14,
   },
   nutritionAdvice: {
     marginTop: 15,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#f1c40f',
-  },
-  featuresContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  featureButton: {
-    backgroundColor: '#2c3e50',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    width: '48%',
-    marginBottom: 10,
-  },
-  featureButtonText: {
-    color: '#f1c40f',
-    fontWeight: 'bold',
   },
   chartContainer: {
-    backgroundColor: '#1e1e1e',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 15,
     padding: 20,
-    borderRadius: 10,
-    marginBottom: 20,
+    marginBottom: 30,
     alignItems: 'center',
   },
   chartTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#f1c40f',
     marginBottom: 10,
@@ -730,8 +716,7 @@ const styles = StyleSheet.create({
   quote: {
     fontSize: 18,
     fontStyle: 'italic',
-    color: '#ccc',
-    marginBottom: 10,
+    color: '#fff',
     textAlign: 'center',
   },
   modalContainer: {
@@ -742,9 +727,9 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '90%',
-    backgroundColor: '#1e1e1e',
+    backgroundColor: '#24243e',
     padding: 20,
-    borderRadius: 10,
+    borderRadius: 15,
   },
   modalHeader: {
     fontSize: 24,
@@ -754,21 +739,16 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   imagePicker: {
-    backgroundColor: '#2c2c2c',
+    backgroundColor: 'rgba(241, 196, 15, 0.1)',
     borderWidth: 1,
     borderColor: '#f1c40f',
-    borderRadius: 8,
-    padding: 10,
+    borderRadius: 15,
+    padding: 20,
     alignItems: 'center',
     marginBottom: 20,
   },
   imagePickerText: {
-    color: '#ccc',
-  },
-  profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    color: '#f1c40f',
   },
   inputContainer: {
     marginBottom: 20,
@@ -776,36 +756,29 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: '#f1c40f',
-    borderRadius: 8,
-    padding: 10,
+    borderRadius: 10,
+    padding: 15,
     marginBottom: 12,
-    backgroundColor: '#2c2c2c',
+    backgroundColor: 'rgba(241, 196, 15, 0.1)',
     color: '#fff',
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  inputHalf: {
-    flex: 1,
-    marginRight: 10,
   },
   modalButton: {
     backgroundColor: '#f1c40f',
     padding: 15,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center',
     marginTop: 20,
   },
   modalButtonText: {
     color: '#121212',
     fontWeight: 'bold',
+    fontSize: 16,
   },
   challengeItem: {
-    backgroundColor: '#2c3e50',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 10,
+    backgroundColor: 'rgba(241, 196, 15, 0.1)',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 15,
   },
   challengeName: {
     color: '#f1c40f',
@@ -818,7 +791,7 @@ const styles = StyleSheet.create({
   },
   challengeButton: {
     backgroundColor: '#f1c40f',
-    padding: 5,
+    padding: 10,
     borderRadius: 5,
     alignItems: 'center',
     marginTop: 10,
@@ -831,10 +804,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   supplementItem: {
-    backgroundColor: '#2c3e50',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 10,
+    backgroundColor: 'rgba(241, 196, 15, 0.1)',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 15,
   },
   supplementName: {
     color: '#f1c40f',
@@ -849,15 +822,24 @@ const styles = StyleSheet.create({
     color: '#f1c40f',
     fontWeight: 'bold',
     fontSize: 18,
-    marginTop: 10,
+    marginTop: 15,
   },
   mealContent: {
     color: '#fff',
-    marginBottom: 5,
+    marginBottom: 10,
   },
   textArea: {
     height: 100,
     textAlignVertical: 'top',
+  },
+  loading: {
+    marginVertical: 20,
+  },
+  error: {
+    color: '#e74c3c',
+    textAlign: 'center',
+    marginBottom: 15,
+    fontSize: 16,
   },
 });
 
