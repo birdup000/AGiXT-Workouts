@@ -37,7 +37,7 @@ A comprehensive workout app powered by AGiXT that helps users track their fitnes
 
 Contributions are welcome. Please open a pull request to submit changes.
 
-## Acknowledgments
+## Acknowledgments/Credits
 
 - JoshXT AGiXT [![GitHub](https://img.shields.io/badge/GitHub-AGiXT%20Core-blue?logo=github&style=plastic)](https://github.com/Josh-XT/AGiXT)
 - JamesonRGrieve TypeScript SDK [![GitHub](https://img.shields.io/badge/GitHub-AGiXT%20TypeScript%20SDK-blue?logo=github&style=plastic)](https://github.com/AGiXT/typescript-sdk)
