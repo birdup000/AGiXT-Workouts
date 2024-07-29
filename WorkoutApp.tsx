@@ -1,11 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Image, Modal, Alert } from 'react-native';
+import { View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Image, Modal, Alert, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Audio } from 'expo-av';
 import AGiXTService, { UserProfile, WorkoutPlanResponse, Challenge, Supplement, MealPlan, CustomExercise } from './AGiXTService';
 import { LineChart } from 'react-native-chart-kit';
+
+const { width } = Dimensions.get('window');
+
+interface LeaderboardEntry {
+  id: number;
+  name: string;
+  points: number;
+}
+
+interface Equipment {
+  id: number;
+  name: string;
+  weight?: number;
+  resistance?: string;
+}
 
 const WorkoutApp = () => {
   const [userProfile, setUserProfile] = useState<UserProfile>({
@@ -32,12 +47,12 @@ const WorkoutApp = () => {
     { id: 2, name: 'Week Warrior', description: 'Complete all workouts for a week', unlocked: false },
   ]);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
-  const [leaderboard, setLeaderboard] = useState([]);
-  const [connectedEquipment, setConnectedEquipment] = useState([]);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [connectedEquipment, setConnectedEquipment] = useState<Equipment[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [supplements, setSupplements] = useState<Supplement[]>([]);
   const [customExercises, setCustomExercises] = useState<CustomExercise[]>([]);
-  const [soreness, setSoreness] = useState({});
+  const [soreness, setSoreness] = useState<Record<string, string>>({});
   const [mealPlan, setMealPlan] = useState<MealPlan | null>(null);
   const [bmiHistory, setBmiHistory] = useState<{date: string, bmi: number}[]>([]);
   const [bmiModalVisible, setBmiModalVisible] = useState(false);
@@ -341,7 +356,7 @@ const WorkoutApp = () => {
                   },
                 ],
               }}
-              width={320}
+              width={width - 40}
               height={220}
               chartConfig={{
                 backgroundColor: '#1e1e1e',
@@ -574,31 +589,31 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 20,
   },
   headerText: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#f1c40f',
     marginTop: 10,
   },
   profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 3,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 2,
     borderColor: '#f1c40f',
   },
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginBottom: 30,
+    marginBottom: 20,
   },
   statItem: {
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#f1c40f',
   },
@@ -608,64 +623,65 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: '#f1c40f',
-    padding: 15,
-    borderRadius: 25,
+    padding: 12,
+    borderRadius: 20,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 15,
   },
   buttonText: {
     color: '#121212',
     fontWeight: 'bold',
-    fontSize: 18,
-    marginLeft: 10,
+    fontSize: 16,
+    marginLeft: 8,
   },
   actionButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     flexWrap: 'wrap',
-    marginBottom: 30,
+    marginBottom: 20,
   },
   actionButton: {
     backgroundColor: 'rgba(241, 196, 15, 0.1)',
-    padding: 15,
-    borderRadius: 15,
+    padding: 12,
+    borderRadius: 12,
     alignItems: 'center',
-    width: '48%',
+    width: (width - 60) / 2,
     marginBottom: 10,
   },
   actionButtonText: {
     color: '#f1c40f',
     marginTop: 5,
+    fontSize: 12,
   },
   workoutPlanContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 15,
-    padding: 20,
-    marginBottom: 30,
+    padding: 15,
+    marginBottom: 20,
   },
   planTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#f1c40f',
-    marginBottom: 15,
-  },
-  dayPlan: {
-    marginBottom: 15,
-  },
-  dayHeader: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#f1c40f',
     marginBottom: 10,
   },
+  dayPlan: {
+    marginBottom: 15,
+  },
+  dayHeader: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#f1c40f',
+    marginBottom: 8,
+  },
   exercise: {
-    marginBottom: 10,
+    marginBottom: 8,
   },
   exerciseName: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
   },
   exerciseDetail: {
@@ -674,19 +690,19 @@ const styles = StyleSheet.create({
   },
   nutritionAdvice: {
     marginTop: 15,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#f1c40f',
   },
   chartContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 15,
-    padding: 20,
-    marginBottom: 30,
+    padding: 15,
+    marginBottom: 20,
     alignItems: 'center',
   },
   chartTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#f1c40f',
     marginBottom: 10,
@@ -698,23 +714,23 @@ const styles = StyleSheet.create({
   bmiCategory: {
     color: '#fff',
     marginTop: 10,
-    fontSize: 16,
+    fontSize: 14,
   },
   motivationSection: {
     marginTop: 20,
   },
   sectionHeader: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#f1c40f',
     marginBottom: 10,
   },
   quoteContainer: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 15,
   },
   quote: {
-    fontSize: 18,
+    fontSize: 16,
     fontStyle: 'italic',
     color: '#fff',
     textAlign: 'center',
@@ -732,42 +748,42 @@ const styles = StyleSheet.create({
     borderRadius: 15,
   },
   modalHeader: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#f1c40f',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 15,
   },
   imagePicker: {
     backgroundColor: 'rgba(241, 196, 15, 0.1)',
     borderWidth: 1,
     borderColor: '#f1c40f',
     borderRadius: 15,
-    padding: 20,
+    padding: 15,
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 15,
   },
   imagePickerText: {
     color: '#f1c40f',
   },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: 15,
   },
   input: {
     borderWidth: 1,
     borderColor: '#f1c40f',
     borderRadius: 10,
-    padding: 15,
-    marginBottom: 12,
+    padding: 12,
+    marginBottom: 10,
     backgroundColor: 'rgba(241, 196, 15, 0.1)',
     color: '#fff',
   },
   modalButton: {
     backgroundColor: '#f1c40f',
-    padding: 15,
+    padding: 12,
     borderRadius: 10,
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 15,
   },
   modalButtonText: {
     color: '#121212',
@@ -783,15 +799,16 @@ const styles = StyleSheet.create({
   challengeName: {
     color: '#f1c40f',
     fontWeight: 'bold',
-    fontSize: 18,
+    fontSize: 16,
   },
   challengeDescription: {
     color: '#fff',
     marginTop: 5,
+    fontSize: 14,
   },
   challengeButton: {
     backgroundColor: '#f1c40f',
-    padding: 10,
+    padding: 8,
     borderRadius: 5,
     alignItems: 'center',
     marginTop: 10,
@@ -812,21 +829,23 @@ const styles = StyleSheet.create({
   supplementName: {
     color: '#f1c40f',
     fontWeight: 'bold',
-    fontSize: 18,
+    fontSize: 16,
   },
   supplementDosage: {
     color: '#fff',
     marginTop: 5,
+    fontSize: 14,
   },
   mealHeader: {
     color: '#f1c40f',
     fontWeight: 'bold',
-    fontSize: 18,
+    fontSize: 16,
     marginTop: 15,
   },
   mealContent: {
     color: '#fff',
     marginBottom: 10,
+    fontSize: 14,
   },
   textArea: {
     height: 100,
@@ -839,7 +858,7 @@ const styles = StyleSheet.create({
     color: '#e74c3c',
     textAlign: 'center',
     marginBottom: 15,
-    fontSize: 16,
+    fontSize: 14,
   },
 });
 

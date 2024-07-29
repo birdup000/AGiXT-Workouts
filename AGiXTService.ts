@@ -69,9 +69,10 @@ class AGiXTService {
   private agentName: string = 'WorkoutAgent';
 
   constructor() {
-    this.baseUri = 'http://localhost:7437';
+    this.baseUri = 'http://your-agixt-base-uri:7437';
     this.headers = {
-      'Authorization': 'Bearer your-api-key-here',
+      'Authorization': 'Bearer ApiKey-goes-here',
+      'Accept': 'application/json',
       'Content-Type': 'application/json',
     };
   }
