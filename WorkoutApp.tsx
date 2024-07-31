@@ -1,10 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Image, Modal, Alert, Dimensions } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  Image,
+  Modal,
+  Alert,
+  Dimensions
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Audio } from 'expo-av';
-import AGiXTService, { UserProfile, WorkoutPlanResponse, Challenge, Supplement, MealPlan, CustomExercise } from './AGiXTService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import AGiXTService, {
+  UserProfile,
+  WorkoutPlanResponse,
+  Challenge,
+  Supplement,
+  MealPlan,
+  CustomExercise
+} from './AGiXTService';
 import { LineChart } from 'react-native-chart-kit';
 
 const { width } = Dimensions.get('window');
@@ -63,24 +83,66 @@ const WorkoutApp = () => {
   const [customExerciseModalVisible, setCustomExerciseModalVisible] = useState(false);
   const [customExerciseName, setCustomExerciseName] = useState('');
   const [customExerciseDescription, setCustomExerciseDescription] = useState('');
-
-  const agixtService = new AGiXTService();
+  const [settingsModalVisible, setSettingsModalVisible] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+  const [apiUri, setApiUri] = useState('');
+  const [agixtService, setAgixtService] = useState<AGiXTService | null>(null);
 
   useEffect(() => {
-    initializeFeatures();
+    const initializeApp = async () => {
+      try {
+        const storedApiKey = await AsyncStorage.getItem('apiKey');
+        const storedApiUri = await AsyncStorage.getItem('apiUri');
+        
+        if (storedApiKey && storedApiUri) {
+          setApiKey(storedApiKey);
+          setApiUri(storedApiUri);
+          const service = new AGiXTService();
+          service.updateSettings(storedApiUri, storedApiKey);
+          await service.initializeWorkoutAgent();
+          setAgixtService(service);
+          
+          // Initialize features after setting up the service
+          await initializeFeatures();
+        } else {
+          const service = new AGiXTService();
+          await service.initializeWorkoutAgent();
+          setAgixtService(service);
+        }
+      } catch (error) {
+        console.error('Error initializing app:', error);
+        Alert.alert('Error', 'Failed to initialize the app. Please restart.');
+      }
+    };
+  
+    initializeApp();
   }, []);
 
+  useEffect(() => {
+    if (agixtService) {
+      initializeFeatures();
+    }
+  }, [agixtService]);
+
   const initializeFeatures = async () => {
+    if (!agixtService) {
+      console.error('AGiXT Service is not initialized');
+      return;
+    }
+  
     try {
-      const challengesData = await agixtService.getChallenges(userProfile);
-      setChallenges(challengesData);
-
-      const supplementsData = await agixtService.getSupplements(userProfile);
-      setSupplements(supplementsData);
-
-      const mealPlanData = await agixtService.getMealPlan(userProfile);
-      setMealPlan(mealPlanData);
-
+      // Only fetch data if the user profile has some information
+      if (userProfile.name && userProfile.age && userProfile.gender) {
+        const challengesData = await agixtService.getChallenges(userProfile);
+        setChallenges(challengesData);
+  
+        const supplementsData = await agixtService.getSupplements(userProfile);
+        setSupplements(supplementsData);
+  
+        const mealPlanData = await agixtService.getMealPlan(userProfile);
+        setMealPlan(mealPlanData);
+      }
+  
       initializeGamification();
       initializeSmartEquipment();
       initializeVoiceControl();
@@ -126,6 +188,11 @@ const WorkoutApp = () => {
   };
 
   const generateWorkoutPlan = async () => {
+    if (!agixtService) {
+      Alert.alert('Error', 'AGiXT Service is not initialized yet.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -208,7 +275,7 @@ const WorkoutApp = () => {
     }
 
     try {
-      const updatedExercises = await agixtService.addCustomExercise(userProfile, {
+      const updatedExercises = await agixtService!.addCustomExercise(userProfile, {
         name: customExerciseName,
         description: customExerciseDescription
       });
@@ -238,7 +305,7 @@ const WorkoutApp = () => {
     }
 
     try {
-      const adjustedPlan = await agixtService.adjustWorkoutPlan(userProfile, workoutPlan, level);
+      const adjustedPlan = await agixtService!.adjustWorkoutPlan(userProfile, workoutPlan, level);
       setWorkoutPlan(adjustedPlan);
       setSoreness({ ...soreness, overall: level });
       Alert.alert('Workout Adjusted', `Your workout has been adjusted based on your ${level} soreness level.`);
@@ -246,6 +313,58 @@ const WorkoutApp = () => {
       console.error('Error adjusting workout plan:', error);
       Alert.alert('Error', 'Failed to adjust workout plan. Please try again.');
     }
+  };
+  
+  const saveSettings = async () => {
+    if (!apiKey.trim() || !apiUri.trim()) {
+      Alert.alert('Invalid Settings', 'Please enter both API Key and API URI.');
+      return;
+    }
+  
+    try {
+      await AsyncStorage.setItem('apiKey', apiKey);
+      await AsyncStorage.setItem('apiUri', apiUri);
+      
+      // Create a new AGiXTService instance with the updated settings
+      const newService = new AGiXTService();
+      newService.updateSettings(apiUri, apiKey);
+      await newService.initializeWorkoutAgent();
+      
+      // Update the agixtService state
+      setAgixtService(newService);
+      
+      // Close the settings modal
+      setSettingsModalVisible(false);
+      
+      Alert.alert('Settings Saved', 'Your AGiXT settings have been updated and saved.');
+      
+      // Optionally, you can re-initialize features here if needed
+      initializeFeatures();
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      Alert.alert('Error', 'Failed to save settings. Please try again.');
+    }
+  };
+
+  const checkSettingsConsistency = async () => {
+    const storedApiKey = await AsyncStorage.getItem('apiKey');
+    const storedApiUri = await AsyncStorage.getItem('apiUri');
+    
+    if (storedApiKey !== apiKey || storedApiUri !== apiUri) {
+      Alert.alert(
+        'Settings Mismatch',
+        'The current settings do not match the saved settings. Would you like to update?',
+        [
+          { text: 'No', style: 'cancel' },
+          { text: 'Yes', onPress: saveSettings }
+        ]
+      );
+    }
+  };
+
+  const saveProfile = () => {
+    setProfileModalVisible(false);
+    Alert.alert('Profile Saved', 'Your profile has been updated successfully.');
   };
 
   return (
@@ -279,7 +398,7 @@ const WorkoutApp = () => {
         </View>
 
         <TouchableOpacity style={styles.button} onPress={generateWorkoutPlan}>
-          <Ionicons name="fitness-outline" size={24} color="#121212" />
+        <Ionicons name="fitness-outline" size={24} color="#121212" />
           <Text style={styles.buttonText}>Generate Workout Plan</Text>
         </TouchableOpacity>
 
@@ -315,6 +434,16 @@ const WorkoutApp = () => {
           <TouchableOpacity style={styles.actionButton} onPress={trackSoreness}>
             <Ionicons name="body-outline" size={24} color="#f1c40f" />
             <Text style={styles.actionButtonText}>Track Soreness</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.actionButton} 
+            onPress={() => {
+              setSettingsModalVisible(true);
+              checkSettingsConsistency();
+            }}
+          >
+            <Ionicons name="settings-outline" size={24} color="#f1c40f" />
+            <Text style={styles.actionButtonText}>Settings</Text>
           </TouchableOpacity>
         </View>
 
@@ -424,9 +553,15 @@ const WorkoutApp = () => {
               </View>
               <TouchableOpacity
                 style={styles.modalButton}
-                onPress={() => setProfileModalVisible(false)}
+                onPress={saveProfile}
               >
                 <Text style={styles.modalButtonText}>Save</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setProfileModalVisible(false)}
+              >
+                <Text style={styles.modalButtonText}>Cancel</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -452,7 +587,7 @@ const WorkoutApp = () => {
               <TouchableOpacity style={styles.modalButton} onPress={calculateBMI}>
                 <Text style={styles.modalButtonText}>Calculate</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.modalButton} onPress={() => setBmiModalVisible(false)}>
+              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setBmiModalVisible(false)}>
                 <Text style={styles.modalButtonText}>Cancel</Text>
               </TouchableOpacity>
             </View>
@@ -482,7 +617,7 @@ const WorkoutApp = () => {
                   </TouchableOpacity>
                 </View>
               ))}
-              <TouchableOpacity style={styles.modalButton} onPress={() => setChallengesModalVisible(false)}>
+              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setChallengesModalVisible(false)}>
                 <Text style={styles.modalButtonText}>Close</Text>
               </TouchableOpacity>
             </View>
@@ -504,7 +639,7 @@ const WorkoutApp = () => {
                   <Text style={styles.supplementDosage}>{supplement.dosage}</Text>
                 </View>
               ))}
-              <TouchableOpacity style={styles.modalButton} onPress={() => setSupplementsModalVisible(false)}>
+              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setSupplementsModalVisible(false)}>
                 <Text style={styles.modalButtonText}>Close</Text>
               </TouchableOpacity>
             </View>
@@ -534,7 +669,7 @@ const WorkoutApp = () => {
                   ))}
                 </>
               )}
-              <TouchableOpacity style={styles.modalButton} onPress={() => setMealPlanModalVisible(false)}>
+              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setMealPlanModalVisible(false)}>
                 <Text style={styles.modalButtonText}>Close</Text>
               </TouchableOpacity>
             </View>
@@ -569,7 +704,41 @@ const WorkoutApp = () => {
               <TouchableOpacity style={styles.modalButton} onPress={createCustomExercise}>
                 <Text style={styles.modalButtonText}>Create Exercise</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.modalButton} onPress={() => setCustomExerciseModalVisible(false)}>
+              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setCustomExerciseModalVisible(false)}>
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={settingsModalVisible}
+          onRequestClose={() => setSettingsModalVisible(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalHeader}>AGiXT Settings</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="API Key"
+                value={apiKey}
+                onChangeText={setApiKey}
+                placeholderTextColor="#ccc"
+                secureTextEntry
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="API URI"
+                value={apiUri}
+                onChangeText={setApiUri}
+                placeholderTextColor="#ccc"
+              />
+              <TouchableOpacity style={styles.modalButton} onPress={saveSettings}>
+                <Text style={styles.modalButtonText}>Save Settings</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setSettingsModalVisible(false)}>
                 <Text style={styles.modalButtonText}>Cancel</Text>
               </TouchableOpacity>
             </View>
@@ -579,6 +748,7 @@ const WorkoutApp = () => {
     </LinearGradient>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {
@@ -746,13 +916,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#24243e',
     padding: 20,
     borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#f1c40f',
   },
   modalHeader: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#f1c40f',
     textAlign: 'center',
-    marginBottom: 15,
+    marginBottom: 20,
   },
   imagePicker: {
     backgroundColor: 'rgba(241, 196, 15, 0.1)',
@@ -789,6 +961,11 @@ const styles = StyleSheet.create({
     color: '#121212',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  cancelButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#f1c40f',
   },
   challengeItem: {
     backgroundColor: 'rgba(241, 196, 15, 0.1)',
