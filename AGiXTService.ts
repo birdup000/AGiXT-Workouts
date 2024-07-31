@@ -35,6 +35,7 @@ export interface WorkoutPlan {
 export interface WorkoutPlanResponse {
   conversationName: string;
   workoutPlan: WorkoutPlan;
+  completed: boolean;
 }
 
 export interface Challenge {
@@ -246,7 +247,7 @@ class AGiXTService {
     return workoutPlan;
   }
 
-  async createWorkoutPlan(userProfile: UserProfile): Promise<WorkoutPlanResponse> {
+  async createWorkoutPlan(userProfile: UserProfile, workoutPath: string): Promise<WorkoutPlanResponse> {
     await this.initializeWorkoutAgent();
 
     const conversationName = `Workout_${userProfile.name}_${Date.now()}`;
@@ -255,8 +256,8 @@ class AGiXTService {
       await this.newConversation(this.agentName, conversationName);
 
       const prompt = `Create a comprehensive workout plan for a ${userProfile.gender} aged ${userProfile.age}, 
-        height ${userProfile.feet}'${userProfile.inches}", weight ${userProfile.weight} lbs, with a fitness goal of ${userProfile.goal}. 
-        Their current fitness level is ${userProfile.fitnessLevel} and they can train ${userProfile.daysPerWeek} days per week. 
+        height ${userProfile.feet}'${userProfile.inches}", weight ${userProfile.weight} lbs, with a fitness goal of ${userProfile.goal} 
+        and workout path of ${workoutPath}. Their current fitness level is ${userProfile.fitnessLevel} and they can train ${userProfile.daysPerWeek} days per week. 
         Include specific exercises, sets, reps, and rest periods for each day. Also, provide nutrition advice tailored to their goal.
         
         Please format the response as a JSON object with the following structure:
@@ -288,7 +289,8 @@ class AGiXTService {
 
       return {
         conversationName,
-        workoutPlan
+        workoutPlan,
+        completed: false
       };
     } catch (error) {
       console.error('Error generating workout plan:', error);
