@@ -41,6 +41,8 @@ export interface Challenge {
   id: number;
   name: string;
   description: string;
+  duration: string;
+  difficulty: string;
   completed: boolean;
 }
 
@@ -48,6 +50,7 @@ export interface Supplement {
   id: number;
   name: string;
   dosage: string;
+  benefit: string;
 }
 
 export interface MealPlan {
@@ -61,6 +64,12 @@ export interface CustomExercise {
   id: number;
   name: string;
   description: string;
+}
+
+export interface WorkoutFeedback {
+  workoutId: string;
+  difficulty: 'easy' | 'just right' | 'hard';
+  completedExercises: string[];
 }
 
 class AGiXTService {
@@ -311,21 +320,45 @@ class AGiXTService {
   }
 
   async getChallenges(userProfile: UserProfile): Promise<Challenge[]> {
-    const prompt = `Generate 3 fitness challenges for a ${userProfile.gender} aged ${userProfile.age} with a fitness level of ${userProfile.fitnessLevel} and a goal of ${userProfile.goal}. Format the response as a JSON array of objects, each with 'id', 'name', 'description', and 'completed' (set to false) properties.`;
+    const prompt = `Generate 3 personalized fitness challenges for a ${userProfile.gender} aged ${userProfile.age} with a fitness level of ${userProfile.fitnessLevel} and a goal of ${userProfile.goal}. Consider their interests and current workout routine. Format the response as a JSON array of objects with the following structure:
+    [
+      {
+        "id": 1,
+        "name": "Challenge name",
+        "description": "Detailed challenge description",
+        "duration": "Challenge duration (e.g., '7 days')",
+        "difficulty": "Easy/Medium/Hard",
+        "completed": false
+      }
+    ]`;
     
     const response = await this.chat(this.agentName, prompt, 'challenges');
     return this.parseJsonResponse(response);
   }
 
   async getSupplements(userProfile: UserProfile): Promise<Supplement[]> {
-    const prompt = `Recommend 3 supplements for a ${userProfile.gender} aged ${userProfile.age} with a fitness level of ${userProfile.fitnessLevel} and a goal of ${userProfile.goal}. Format the response as a JSON array of objects, each with 'id', 'name', and 'dosage' properties.`;
+    const prompt = `Recommend 3 supplements for a ${userProfile.gender} aged ${userProfile.age} with a fitness level of ${userProfile.fitnessLevel} and a goal of ${userProfile.goal}. Consider any health conditions or specific needs mentioned in their bio or interests. Format the response as a JSON array of objects with the following structure:
+    [
+      {
+        "id": 1,
+        "name": "Supplement name",
+        "dosage": "Recommended dosage",
+        "benefit": "Brief description of the benefit"
+      }
+    ]`;
     
     const response = await this.chat(this.agentName, prompt, 'supplements');
     return this.parseJsonResponse(response);
   }
 
   async getMealPlan(userProfile: UserProfile): Promise<MealPlan> {
-    const prompt = `Create a meal plan for a ${userProfile.gender} aged ${userProfile.age}, weight ${userProfile.weight} lbs, with a fitness goal of ${userProfile.goal}. Include breakfast, lunch, dinner, and two snacks. Format the response as a JSON object with 'breakfast', 'lunch', 'dinner', and 'snacks' (array) properties.`;
+    const prompt = `Create a detailed meal plan for a ${userProfile.gender} aged ${userProfile.age}, weight ${userProfile.weight} lbs, with a fitness goal of ${userProfile.goal}. Include specific meals for breakfast, lunch, dinner, and two snacks. Consider any dietary restrictions or preferences mentioned in their interests. Format the response as a JSON object with the following structure:
+    {
+      "breakfast": "Detailed breakfast description",
+      "lunch": "Detailed lunch description",
+      "dinner": "Detailed dinner description",
+      "snacks": ["Snack 1 description", "Snack 2 description"]
+    }`;
     
     const response = await this.chat(this.agentName, prompt, 'mealplan');
     return this.parseJsonResponse(response);
@@ -349,6 +382,32 @@ class AGiXTService {
     return { ...currentPlan, workoutPlan: adjustedPlan };
   }
 
+  async logWorkoutCompletion(userProfile: UserProfile, workoutPlan: WorkoutPlan, feedback: WorkoutFeedback): Promise<void> {
+    const prompt = `User ${userProfile.name} completed a workout from the following plan:
+    ${JSON.stringify(workoutPlan, null, 2)}
+    
+    Completed exercises: ${feedback.completedExercises.join(', ')}
+    Difficulty rating: ${feedback.difficulty}
+    
+    Please analyze this information and provide suggestions for adjusting future workouts. Format the response as a JSON object with 'analysis' and 'suggestions' properties.`;
+
+    const response = await this.chat(this.agentName, prompt, 'workoutfeedback');
+    const learningData = this.parseJsonResponse(response);
+
+    // Store learning data for future use
+    await this.storeLearningData(userProfile.name, learningData);
+  }
+
+  private async storeLearningData(userName: string, learningData: any): Promise<void> {
+    // In a real application, you would store this data in a database
+    // For this example, we'll just log it
+    console.log(`Storing learning data for ${userName}:`, learningData);
+    
+    // You could implement a database call here to store the learning data
+    // For example:
+    // await database.storeLearningData(userName, learningData);
+  }
+
   private parseJsonResponse(response: any): any {
     if (typeof response === 'string') {
       try {
@@ -357,14 +416,105 @@ class AGiXTService {
         console.error("Failed to parse response as JSON:", error);
         const match = response.match(/\{[\s\S]*\}/);
         if (match) {
-          return JSON.parse(match[0]);
+          try {
+            return JSON.parse(match[0]);
+          } catch (innerError) {
+            console.error("Failed to parse extracted JSON:", innerError);
+            throw new Error("Failed to extract valid JSON from response");
+          }
         }
         throw new Error("No valid JSON found in the response");
       }
     } else if (typeof response === 'object' && response !== null) {
-      return response.response ? JSON.parse(response.response) : response;
+      if (response.response) {
+        try {
+          return JSON.parse(response.response);
+        } catch (error) {
+          console.error("Failed to parse response.response as JSON:", error);
+          return response.response;
+        }
+      } else {
+        return response;
+      }
     }
     throw new Error("Response is neither a string nor an object");
+  }
+
+  async getPersonalizedMotivation(userProfile: UserProfile): Promise<string> {
+    const prompt = `Generate a personalized motivational quote for a ${userProfile.gender} aged ${userProfile.age} with a fitness goal of ${userProfile.goal} and interests in ${userProfile.interests}. The quote should be inspiring and relevant to their fitness journey.`;
+    
+    const response = await this.chat(this.agentName, prompt, 'motivation');
+    return this.parseJsonResponse(response);
+  }
+
+  async generateProgressReport(userProfile: UserProfile, workoutHistory: WorkoutPlanResponse[], bmiHistory: {date: string, bmi: number}[]): Promise<string> {
+    const prompt = `Generate a progress report for ${userProfile.name} based on the following data:
+    
+    Initial profile:
+    ${JSON.stringify(userProfile, null, 2)}
+    
+    Workout history (summarized):
+    ${workoutHistory.map(wp => wp.conversationName).join(', ')}
+    
+    BMI history:
+    ${JSON.stringify(bmiHistory, null, 2)}
+    
+    Analyze the user's progress, identify trends, and provide recommendations for future improvements. Format the response as a detailed text report.`;
+    
+    const response = await this.chat(this.agentName, prompt, 'progressreport');
+    return this.parseJsonResponse(response);
+  }
+
+  async suggestWorkoutModifications(userProfile: UserProfile, currentPlan: WorkoutPlanResponse, recentFeedback: WorkoutFeedback[]): Promise<WorkoutPlanResponse> {
+    const prompt = `Based on the user's profile and recent workout feedback, suggest modifications to the current workout plan:
+    
+    User Profile:
+    ${JSON.stringify(userProfile, null, 2)}
+    
+    Current Workout Plan:
+    ${JSON.stringify(currentPlan.workoutPlan, null, 2)}
+    
+    Recent Feedback:
+    ${JSON.stringify(recentFeedback, null, 2)}
+    
+    Please provide a modified workout plan that addresses the user's feedback and helps them progress towards their goals. Format the response as a JSON object matching the original WorkoutPlan structure.`;
+    
+    const response = await this.chat(this.agentName, prompt, 'modifyworkout');
+    const modifiedPlan = this.parseJsonResponse(response);
+    return { ...currentPlan, workoutPlan: modifiedPlan };
+  }
+
+  async generateWarmupRoutine(userProfile: UserProfile, workoutPlan: WorkoutPlan): Promise<string> {
+    const prompt = `Create a warm-up routine tailored for the following workout and user profile:
+    
+    User Profile:
+    ${JSON.stringify(userProfile, null, 2)}
+    
+    Workout Plan:
+    ${JSON.stringify(workoutPlan, null, 2)}
+    
+    The warm-up should prepare the body for the specific exercises in the workout plan and consider the user's fitness level. Provide a detailed description of each warm-up exercise, including duration or repetitions.`;
+    
+    const response = await this.chat(this.agentName, prompt, 'warmup');
+    return this.parseJsonResponse(response);
+  }
+
+  async provideRecoveryTips(userProfile: UserProfile, lastWorkout: WorkoutPlan, soreness: Record<string, string>): Promise<string> {
+    const prompt = `Provide recovery tips for ${userProfile.name} based on their last workout and reported soreness:
+    
+    User Profile:
+    ${JSON.stringify(userProfile, null, 2)}
+    
+    Last Workout:
+    ${JSON.stringify(lastWorkout, null, 2)}
+    
+    Reported Soreness:
+    ${JSON.stringify(soreness, null, 2)}
+    
+    Suggest specific recovery techniques, stretches, or activities to help alleviate soreness and promote faster recovery. Consider the user's fitness level and the intensity of their last workout.`;
+    
+    const response = await this.chat(this.agentName, prompt, 'recovery');
+    return this.parseJsonResponse(response);
   }
 }
 

@@ -23,7 +23,8 @@ import AGiXTService, {
   Challenge,
   Supplement,
   MealPlan,
-  CustomExercise
+  CustomExercise,
+  WorkoutFeedback
 } from './AGiXTService';
 import { LineChart } from 'react-native-chart-kit';
 
@@ -87,6 +88,8 @@ const WorkoutApp = () => {
   const [apiKey, setApiKey] = useState('');
   const [apiUri, setApiUri] = useState('');
   const [agixtService, setAgixtService] = useState<AGiXTService | null>(null);
+  const [workoutFeedback, setWorkoutFeedback] = useState<WorkoutFeedback | null>(null);
+  const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -102,7 +105,6 @@ const WorkoutApp = () => {
           await service.initializeWorkoutAgent();
           setAgixtService(service);
           
-          // Initialize features after setting up the service
           await initializeFeatures();
         } else {
           const service = new AGiXTService();
@@ -131,7 +133,6 @@ const WorkoutApp = () => {
     }
   
     try {
-      // Only fetch data if the user profile has some information
       if (userProfile.name && userProfile.age && userProfile.gender) {
         const challengesData = await agixtService.getChallenges(userProfile);
         setChallenges(challengesData);
@@ -325,20 +326,16 @@ const WorkoutApp = () => {
       await AsyncStorage.setItem('apiKey', apiKey);
       await AsyncStorage.setItem('apiUri', apiUri);
       
-      // Create a new AGiXTService instance with the updated settings
       const newService = new AGiXTService();
       newService.updateSettings(apiUri, apiKey);
       await newService.initializeWorkoutAgent();
       
-      // Update the agixtService state
       setAgixtService(newService);
       
-      // Close the settings modal
       setSettingsModalVisible(false);
       
       Alert.alert('Settings Saved', 'Your AGiXT settings have been updated and saved.');
       
-      // Optionally, you can re-initialize features here if needed
       initializeFeatures();
     } catch (error) {
       console.error('Error saving settings:', error);
@@ -367,71 +364,378 @@ const WorkoutApp = () => {
     Alert.alert('Profile Saved', 'Your profile has been updated successfully.');
   };
 
-  return (
-    <LinearGradient colors={['#0f0c29', '#302b63', '#24243e']} style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          {profileImage ? (
-            <Image source={{ uri: profileImage }} style={styles.profileImage} />
-          ) : (
-            <Ionicons name="person-circle-outline" size={80} color="#f1c40f" />
-          )}
-          <Text style={styles.headerText}>Welcome, {userProfile.name || 'Fitness Warrior'}</Text>
-        </View>
+  const handleWorkoutCompletion = async (difficulty: 'easy' | 'just right' | 'hard', completedExercises: string[]) => {
+    if (!workoutPlan || !agixtService) return;
 
-        <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Ionicons name="medal-outline" size={24} color="#f1c40f" />
-            <Text style={styles.statValue}>{points}</Text>
-            <Text style={styles.statLabel}>Points</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Ionicons name="barbell-outline" size={24} color="#f1c40f" />
-            <Text style={styles.statValue}>{workoutPlan?.workoutPlan?.weeklyPlan?.length || 0}</Text>
-            <Text style={styles.statLabel}>Workouts</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Ionicons name="flame-outline" size={24} color="#f1c40f" />
-            <Text style={styles.statValue}>{challenges.length}</Text>
-            <Text style={styles.statLabel}>Challenges</Text>
-          </View>
-        </View>
+    const feedback: WorkoutFeedback = {
+      workoutId: workoutPlan.conversationName,
+      difficulty,
+      completedExercises,
+    };
 
-        <TouchableOpacity style={styles.button} onPress={generateWorkoutPlan}>
-        <Ionicons name="fitness-outline" size={24} color="#121212" />
-          <Text style={styles.buttonText}>Generate Workout Plan</Text>
-        </TouchableOpacity>
+    setWorkoutFeedback(feedback);
 
-        <View style={styles.actionButtons}>
-          <TouchableOpacity style={styles.actionButton} onPress={() => setProfileModalVisible(true)}>
-            <Ionicons name="person-outline" size={24} color="#f1c40f" />
-            <Text style={styles.actionButtonText}>Edit Profile</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} onPress={() => setBmiModalVisible(true)}>
-            <Ionicons name="calculator-outline" size={24} color="#f1c40f" />
-            <Text style={styles.actionButtonText}>BMI</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} onPress={() => setChallengesModalVisible(true)}>
-            <Ionicons name="trophy-outline" size={24} color="#f1c40f" />
-            <Text style={styles.actionButtonText}>Challenges</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} onPress={() => setMealPlanModalVisible(true)}>
-            <Ionicons name="nutrition-outline" size={24} color="#f1c40f" />
-            <Text style={styles.actionButtonText}>Meal Plan</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} onPress={() => setSupplementsModalVisible(true)}>
-            <Ionicons name="flask-outline" size={24} color="#f1c40f" />
-            <Text style={styles.actionButtonText}>Supplements</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} onPress={() => setCustomExerciseModalVisible(true)}>
-            <Ionicons name="add-circle-outline" size={24} color="#f1c40f" />
-            <Text style={styles.actionButtonText}>Custom Exercise</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} onPress={startVoiceControl}>
-            <Ionicons name="mic-outline" size={24} color="#f1c40f" />
-            <Text style={styles.actionButtonText}>Voice Control</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} onPress={trackSoreness}>
+    try {
+      await agixtService.logWorkoutCompletion(userProfile, workoutPlan.workoutPlan, feedback);
+      Alert.alert('Feedback Recorded', 'Your workout feedback has been recorded and will be used to improve future workouts.');
+    } catch (error) {
+      console.error('Error logging workout completion:', error);
+      Alert.alert('Error', 'Failed to record workout feedback. Please try again.');
+    }
+  };
+
+  const renderWorkoutPlan = () => {
+    if (!workoutPlan || !workoutPlan.workoutPlan) return null;
+
+    return (
+      <View style={styles.workoutPlanContainer}>
+        <Text style={styles.planTitle}>Workout Plan:</Text>
+        {workoutPlan.workoutPlan.weeklyPlan.map((dayPlan, index) => (
+          <View key={index} style={styles.dayPlan}>
+            <Text style={styles.dayHeader}>{dayPlan.day}</Text>
+            {dayPlan.exercises.map((exercise, exIndex) => (
+             <View key={exIndex} style={styles.exercise}>
+             <Text style={styles.exerciseName}>{exercise.name}</Text>
+             <Text style={styles.exerciseDetail}>Sets: {exercise.sets}</Text>
+             <Text style={styles.exerciseDetail}>Reps: {exercise.reps}</Text>
+             <Text style={styles.exerciseDetail}>Rest: {exercise.rest}</Text>
+             <Text style={styles.exerciseDetail}>Details: {exercise.text}</Text>
+           </View>
+         ))}
+       </View>
+     ))}
+     <Text style={styles.nutritionAdvice}>Nutrition Advice: {workoutPlan.workoutPlan.nutritionAdvice}</Text>
+     <TouchableOpacity style={styles.feedbackButton} onPress={() => setFeedbackModalVisible(true)}>
+       <Text style={styles.feedbackButtonText}>Provide Workout Feedback</Text>
+     </TouchableOpacity>
+   </View>
+ );
+};
+
+const renderFeedbackModal = () => (
+ <Modal
+   animationType="slide"
+   transparent={true}
+   visible={feedbackModalVisible}
+   onRequestClose={() => setFeedbackModalVisible(false)}
+ >
+   <View style={styles.modalContainer}>
+     <View style={styles.modalContent}>
+       <Text style={styles.modalHeader}>Workout Feedback</Text>
+       <Text style={styles.modalText}>How was your workout?</Text>
+       <TouchableOpacity style={styles.feedbackOption} onPress={() => handleWorkoutCompletion('easy', [])}>
+         <Text style={styles.feedbackOptionText}>Easy</Text>
+       </TouchableOpacity>
+       <TouchableOpacity style={styles.feedbackOption} onPress={() => handleWorkoutCompletion('just right', [])}>
+         <Text style={styles.feedbackOptionText}>Just Right</Text>
+       </TouchableOpacity>
+       <TouchableOpacity style={styles.feedbackOption} onPress={() => handleWorkoutCompletion('hard', [])}>
+         <Text style={styles.feedbackOptionText}>Hard</Text>
+       </TouchableOpacity>
+       <TouchableOpacity style={styles.cancelButton} onPress={() => setFeedbackModalVisible(false)}>
+         <Text style={styles.cancelButtonText}>Cancel</Text>
+       </TouchableOpacity>
+     </View>
+   </View>
+ </Modal>
+);
+
+const renderProfileModal = () => (
+ <Modal
+   animationType="slide"
+   transparent={true}
+   visible={profileModalVisible}
+   onRequestClose={() => setProfileModalVisible(false)}
+ >
+   <View style={styles.modalContainer}>
+     <View style={styles.modalContent}>
+       <Text style={styles.modalHeader}>Edit Profile</Text>
+       <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
+         {profileImage ? (
+           <Image source={{ uri: profileImage }} style={styles.profileImage} />
+         ) : (
+           <Text style={styles.imagePickerText}>Upload Profile Picture</Text>
+         )}
+       </TouchableOpacity>
+       <View style={styles.inputContainer}>
+         {Object.keys(userProfile).map((key) => (
+           <TextInput
+             key={key}
+             style={styles.input}
+             placeholder={key.charAt(0).toUpperCase() + key.slice(1)}
+             value={userProfile[key as keyof UserProfile]}
+             onChangeText={(text) => handleInputChange(key as keyof UserProfile, text)}
+             placeholderTextColor="#ccc"
+             keyboardType={key === 'age' || key === 'weight' || key === 'feet' || key === 'inches' || key === 'daysPerWeek' ? 'numeric' : 'default'}
+           />
+         ))}
+       </View>
+       <TouchableOpacity style={styles.modalButton} onPress={saveProfile}>
+         <Text style={styles.modalButtonText}>Save</Text>
+       </TouchableOpacity>
+       <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setProfileModalVisible(false)}>
+         <Text style={styles.modalButtonText}>Cancel</Text>
+       </TouchableOpacity>
+     </View>
+   </View>
+ </Modal>
+);
+
+const renderBmiModal = () => (
+ <Modal
+   animationType="slide"
+   transparent={true}
+   visible={bmiModalVisible}
+   onRequestClose={() => setBmiModalVisible(false)}
+ >
+   <View style={styles.modalContainer}>
+     <View style={styles.modalContent}>
+       <Text style={styles.modalHeader}>Calculate BMI</Text>
+       <TextInput
+         style={styles.input}
+         placeholder="Current Weight (lbs)"
+         value={currentWeight}
+         onChangeText={setCurrentWeight}
+         keyboardType="numeric"
+         placeholderTextColor="#ccc"
+       />
+       <TouchableOpacity style={styles.modalButton} onPress={calculateBMI}>
+         <Text style={styles.modalButtonText}>Calculate</Text>
+       </TouchableOpacity>
+       <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setBmiModalVisible(false)}>
+         <Text style={styles.modalButtonText}>Cancel</Text>
+       </TouchableOpacity>
+     </View>
+   </View>
+ </Modal>
+);
+
+const renderChallengesModal = () => (
+ <Modal
+   animationType="slide"
+   transparent={true}
+   visible={challengesModalVisible}
+   onRequestClose={() => setChallengesModalVisible(false)}
+ >
+   <View style={styles.modalContainer}>
+     <View style={styles.modalContent}>
+       <Text style={styles.modalHeader}>Challenges</Text>
+       {challenges.map((challenge) => (
+         <View key={challenge.id} style={styles.challengeItem}>
+           <Text style={styles.challengeName}>{challenge.name}</Text>
+           <Text style={styles.challengeDescription}>{challenge.description}</Text>
+           <TouchableOpacity
+             style={[styles.challengeButton, challenge.completed && styles.challengeCompleted]}
+             onPress={() => {/* Implement challenge completion logic */}}
+           >
+             <Text style={styles.challengeButtonText}>
+               {challenge.completed ? 'Completed' : 'Complete'}
+             </Text>
+           </TouchableOpacity>
+         </View>
+       ))}
+       <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setChallengesModalVisible(false)}>
+         <Text style={styles.modalButtonText}>Close</Text>
+       </TouchableOpacity>
+     </View>
+   </View>
+ </Modal>
+);
+
+const renderMealPlanModal = () => (
+ <Modal
+   animationType="slide"
+   transparent={true}
+   visible={mealPlanModalVisible}
+   onRequestClose={() => setMealPlanModalVisible(false)}
+ >
+   <View style={styles.modalContainer}>
+     <View style={styles.modalContent}>
+       <Text style={styles.modalHeader}>Meal Plan</Text>
+       {mealPlan && (
+         <>
+           <Text style={styles.mealHeader}>Breakfast:</Text>
+           <Text style={styles.mealContent}>{mealPlan.breakfast}</Text>
+           <Text style={styles.mealHeader}>Lunch:</Text>
+           <Text style={styles.mealContent}>{mealPlan.lunch}</Text>
+           <Text style={styles.mealHeader}>Dinner:</Text>
+           <Text style={styles.mealContent}>{mealPlan.dinner}</Text>
+           <Text style={styles.mealHeader}>Snacks:</Text>
+           {mealPlan.snacks.map((snack, index) => (
+             <Text key={index} style={styles.mealContent}>{snack}</Text>
+           ))}
+         </>
+       )}
+       <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setMealPlanModalVisible(false)}>
+         <Text style={styles.modalButtonText}>Close</Text>
+       </TouchableOpacity>
+     </View>
+   </View>
+ </Modal>
+);
+
+const renderSupplementsModal = () => (
+ <Modal
+   animationType="slide"
+   transparent={true}
+   visible={supplementsModalVisible}
+   onRequestClose={() => setSupplementsModalVisible(false)}
+ >
+   <View style={styles.modalContainer}>
+     <View style={styles.modalContent}>
+       <Text style={styles.modalHeader}>Supplement Plan</Text>
+       {supplements.map((supplement) => (
+         <View key={supplement.id} style={styles.supplementItem}>
+           <Text style={styles.supplementName}>{supplement.name}</Text>
+           <Text style={styles.supplementDosage}>{supplement.dosage}</Text>
+         </View>
+       ))}
+       <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setSupplementsModalVisible(false)}>
+         <Text style={styles.modalButtonText}>Close</Text>
+       </TouchableOpacity>
+     </View>
+   </View>
+ </Modal>
+);
+
+const renderCustomExerciseModal = () => (
+ <Modal
+   animationType="slide"
+   transparent={true}
+   visible={customExerciseModalVisible}
+   onRequestClose={() => setCustomExerciseModalVisible(false)}
+ >
+   <View style={styles.modalContainer}>
+     <View style={styles.modalContent}>
+       <Text style={styles.modalHeader}>Create Custom Exercise</Text>
+       <TextInput
+         style={styles.input}
+         placeholder="Exercise Name"
+         value={customExerciseName}
+         onChangeText={setCustomExerciseName}
+         placeholderTextColor="#ccc"
+       />
+       <TextInput
+         style={[styles.input, styles.textArea]}
+         placeholder="Exercise Description"
+         value={customExerciseDescription}
+         onChangeText={setCustomExerciseDescription}
+         multiline
+         numberOfLines={4}
+         placeholderTextColor="#ccc"
+       />
+       <TouchableOpacity style={styles.modalButton} onPress={createCustomExercise}>
+         <Text style={styles.modalButtonText}>Create Exercise</Text>
+       </TouchableOpacity>
+       <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setCustomExerciseModalVisible(false)}>
+         <Text style={styles.modalButtonText}>Cancel</Text>
+       </TouchableOpacity>
+     </View>
+   </View>
+ </Modal>
+);
+
+const renderSettingsModal = () => (
+ <Modal
+   animationType="slide"
+   transparent={true}
+   visible={settingsModalVisible}
+   onRequestClose={() => setSettingsModalVisible(false)}
+ >
+   <View style={styles.modalContainer}>
+     <View style={styles.modalContent}>
+       <Text style={styles.modalHeader}>AGiXT Settings</Text>
+       <TextInput
+         style={styles.input}
+         placeholder="API Key"
+         value={apiKey}
+         onChangeText={setApiKey}
+         placeholderTextColor="#ccc"
+         secureTextEntry
+       />
+       <TextInput
+         style={styles.input}
+         placeholder="API URI"
+         value={apiUri}
+         onChangeText={setApiUri}
+         placeholderTextColor="#ccc"
+       />
+       <TouchableOpacity style={styles.modalButton} onPress={saveSettings}>
+         <Text style={styles.modalButtonText}>Save Settings</Text>
+       </TouchableOpacity>
+       <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setSettingsModalVisible(false)}>
+         <Text style={styles.modalButtonText}>Cancel</Text>
+       </TouchableOpacity>
+     </View>
+   </View>
+ </Modal>
+);
+
+return (
+ <LinearGradient colors={['#0f0c29', '#302b63', '#24243e']} style={styles.container}>
+   <ScrollView contentContainerStyle={styles.scrollContent}>
+     <View style={styles.header}>
+       {profileImage ? (
+         <Image source={{ uri: profileImage }} style={styles.profileImage} />
+       ) : (
+         <Ionicons name="person-circle-outline" size={80} color="#f1c40f" />
+       )}
+       <Text style={styles.headerText}>Welcome, {userProfile.name || 'Fitness Warrior'}</Text>
+     </View>
+
+     <View style={styles.statsContainer}>
+       <View style={styles.statItem}>
+         <Ionicons name="medal-outline" size={24} color="#f1c40f" />
+         <Text style={styles.statValue}>{points}</Text>
+         <Text style={styles.statLabel}>Points</Text>
+       </View>
+       <View style={styles.statItem}>
+         <Ionicons name="barbell-outline" size={24} color="#f1c40f" />
+         <Text style={styles.statValue}>{workoutPlan?.workoutPlan?.weeklyPlan?.length || 0}</Text>
+         <Text style={styles.statLabel}>Workouts</Text>
+       </View>
+       <View style={styles.statItem}>
+         <Ionicons name="flame-outline" size={24} color="#f1c40f" />
+         <Text style={styles.statValue}>{challenges.length}</Text>
+         <Text style={styles.statLabel}>Challenges</Text>
+       </View>
+     </View>
+
+     <TouchableOpacity style={styles.button} onPress={generateWorkoutPlan}>
+       <Ionicons name="fitness-outline" size={24} color="#121212" />
+       <Text style={styles.buttonText}>Generate Workout Plan</Text>
+     </TouchableOpacity>
+
+     <View style={styles.actionButtons}>
+       <TouchableOpacity style={styles.actionButton} onPress={() => setProfileModalVisible(true)}>
+         <Ionicons name="person-outline" size={24} color="#f1c40f" />
+         <Text style={styles.actionButtonText}>Edit Profile</Text>
+       </TouchableOpacity>
+       <TouchableOpacity style={styles.actionButton} onPress={() => setBmiModalVisible(true)}>
+         <Ionicons name="calculator-outline" size={24} color="#f1c40f" />
+         <Text style={styles.actionButtonText}>BMI</Text>
+       </TouchableOpacity>
+       <TouchableOpacity style={styles.actionButton} onPress={() => setChallengesModalVisible(true)}>
+         <Ionicons name="trophy-outline" size={24} color="#f1c40f" />
+         <Text style={styles.actionButtonText}>Challenges</Text>
+       </TouchableOpacity>
+       <TouchableOpacity style={styles.actionButton} onPress={() => setMealPlanModalVisible(true)}>
+         <Ionicons name="nutrition-outline" size={24} color="#f1c40f" />
+         <Text style={styles.actionButtonText}>Meal Plan</Text>
+       </TouchableOpacity>
+       <TouchableOpacity style={styles.actionButton} onPress={() => setSupplementsModalVisible(true)}>
+         <Ionicons name="flask-outline" size={24} color="#f1c40f" />
+         <Text style={styles.actionButtonText}>Supplements</Text>
+       </TouchableOpacity>
+       <TouchableOpacity style={styles.actionButton} onPress={() => setCustomExerciseModalVisible(true)}>
+         <Ionicons name="add-circle-outline" size={24} color="#f1c40f" />
+         <Text style={styles.actionButtonText}>Custom Exercise</Text>
+       </TouchableOpacity>
+       <TouchableOpacity style={styles.actionButton} onPress={startVoiceControl}>
+         <Ionicons name="mic-outline" size={24} color="#f1c40f" />
+         <Text style={styles.actionButtonText}>Voice Control</Text>
+       </TouchableOpacity>
+       <TouchableOpacity style={styles.actionButton} onPress={trackSoreness}>
             <Ionicons name="body-outline" size={24} color="#f1c40f" />
             <Text style={styles.actionButtonText}>Track Soreness</Text>
           </TouchableOpacity>
@@ -450,26 +754,7 @@ const WorkoutApp = () => {
         {loading && <ActivityIndicator size="large" color="#f1c40f" style={styles.loading} />}
         {error && <Text style={styles.error}>{error}</Text>}
         
-        {workoutPlan && workoutPlan.workoutPlan && workoutPlan.workoutPlan.weeklyPlan && (
-          <View style={styles.workoutPlanContainer}>
-            <Text style={styles.planTitle}>Workout Plan:</Text>
-            {workoutPlan.workoutPlan.weeklyPlan.map((dayPlan, index) => (
-              <View key={index} style={styles.dayPlan}>
-                <Text style={styles.dayHeader}>{dayPlan.day}</Text>
-                {dayPlan.exercises.map((exercise, exIndex) => (
-                  <View key={exIndex} style={styles.exercise}>
-                    <Text style={styles.exerciseName}>{exercise.name}</Text>
-                    <Text style={styles.exerciseDetail}>Sets: {exercise.sets}</Text>
-                    <Text style={styles.exerciseDetail}>Reps: {exercise.reps}</Text>
-                    <Text style={styles.exerciseDetail}>Rest: {exercise.rest}</Text>
-                    <Text style={styles.exerciseDetail}>Details: {exercise.text}</Text>
-                  </View>
-                ))}
-              </View>
-            ))}
-            <Text style={styles.nutritionAdvice}>Nutrition Advice: {workoutPlan.workoutPlan.nutritionAdvice}</Text>
-          </View>
-        )}
+        {renderWorkoutPlan()}
 
         {bmiHistory.length > 0 && (
           <View style={styles.chartContainer}>
@@ -522,233 +807,18 @@ const WorkoutApp = () => {
           </View>
         </View>
 
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={profileModalVisible}
-          onRequestClose={() => setProfileModalVisible(false)}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalHeader}>Edit Profile</Text>
-              <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
-                {profileImage ? (
-                  <Image source={{ uri: profileImage }} style={styles.profileImage} />
-                ) : (
-                  <Text style={styles.imagePickerText}>Upload Profile Picture</Text>
-                )}
-              </TouchableOpacity>
-              <View style={styles.inputContainer}>
-                {Object.keys(userProfile).map((key) => (
-                  <TextInput
-                    key={key}
-                    style={styles.input}
-                    placeholder={key.charAt(0).toUpperCase() + key.slice(1)}
-                    value={userProfile[key as keyof UserProfile]}
-                    onChangeText={(text) => handleInputChange(key as keyof UserProfile, text)}
-                    placeholderTextColor="#ccc"
-                    keyboardType={key === 'age' || key === 'weight' || key === 'feet' || key === 'inches' || key === 'daysPerWeek' ? 'numeric' : 'default'}
-                  />
-                ))}
-              </View>
-              <TouchableOpacity
-                style={styles.modalButton}
-                onPress={saveProfile}
-              >
-                <Text style={styles.modalButtonText}>Save</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setProfileModalVisible(false)}
-              >
-                <Text style={styles.modalButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={bmiModalVisible}
-          onRequestClose={() => setBmiModalVisible(false)}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalHeader}>Calculate BMI</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Current Weight (lbs)"
-                value={currentWeight}
-                onChangeText={setCurrentWeight}
-                keyboardType="numeric"
-                placeholderTextColor="#ccc"
-              />
-              <TouchableOpacity style={styles.modalButton} onPress={calculateBMI}>
-                <Text style={styles.modalButtonText}>Calculate</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setBmiModalVisible(false)}>
-                <Text style={styles.modalButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={challengesModalVisible}
-          onRequestClose={() => setChallengesModalVisible(false)}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalHeader}>Challenges</Text>
-              {challenges.map((challenge) => (
-                <View key={challenge.id} style={styles.challengeItem}>
-                  <Text style={styles.challengeName}>{challenge.name}</Text>
-                  <Text style={styles.challengeDescription}>{challenge.description}</Text>
-                  <TouchableOpacity
-                    style={[styles.challengeButton, challenge.completed && styles.challengeCompleted]}
-                    onPress={() => {/* Implement challenge completion logic */}}
-                  >
-                    <Text style={styles.challengeButtonText}>
-                      {challenge.completed ? 'Completed' : 'Complete'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
-              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setChallengesModalVisible(false)}>
-                <Text style={styles.modalButtonText}>Close</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={supplementsModalVisible}
-          onRequestClose={() => setSupplementsModalVisible(false)}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalHeader}>Supplement Plan</Text>
-              {supplements.map((supplement) => (
-                <View key={supplement.id} style={styles.supplementItem}>
-                  <Text style={styles.supplementName}>{supplement.name}</Text>
-                  <Text style={styles.supplementDosage}>{supplement.dosage}</Text>
-                </View>
-              ))}
-              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setSupplementsModalVisible(false)}>
-                <Text style={styles.modalButtonText}>Close</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={mealPlanModalVisible}
-          onRequestClose={() => setMealPlanModalVisible(false)}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalHeader}>Meal Plan</Text>
-              {mealPlan && (
-                <>
-                  <Text style={styles.mealHeader}>Breakfast:</Text>
-                  <Text style={styles.mealContent}>{mealPlan.breakfast}</Text>
-                  <Text style={styles.mealHeader}>Lunch:</Text>
-                  <Text style={styles.mealContent}>{mealPlan.lunch}</Text>
-                  <Text style={styles.mealHeader}>Dinner:</Text>
-                  <Text style={styles.mealContent}>{mealPlan.dinner}</Text>
-                  <Text style={styles.mealHeader}>Snacks:</Text>
-                  {mealPlan.snacks.map((snack, index) => (
-                    <Text key={index} style={styles.mealContent}>{snack}</Text>
-                  ))}
-                </>
-              )}
-              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setMealPlanModalVisible(false)}>
-                <Text style={styles.modalButtonText}>Close</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={customExerciseModalVisible}
-          onRequestClose={() => setCustomExerciseModalVisible(false)}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalHeader}>Create Custom Exercise</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Exercise Name"
-                value={customExerciseName}
-                onChangeText={setCustomExerciseName}
-                placeholderTextColor="#ccc"
-              />
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                placeholder="Exercise Description"
-                value={customExerciseDescription}
-                onChangeText={setCustomExerciseDescription}
-                multiline
-                numberOfLines={4}
-                placeholderTextColor="#ccc"
-              />
-              <TouchableOpacity style={styles.modalButton} onPress={createCustomExercise}>
-                <Text style={styles.modalButtonText}>Create Exercise</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setCustomExerciseModalVisible(false)}>
-                <Text style={styles.modalButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={settingsModalVisible}
-          onRequestClose={() => setSettingsModalVisible(false)}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalHeader}>AGiXT Settings</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="API Key"
-                value={apiKey}
-                onChangeText={setApiKey}
-                placeholderTextColor="#ccc"
-                secureTextEntry
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="API URI"
-                value={apiUri}
-                onChangeText={setApiUri}
-                placeholderTextColor="#ccc"
-              />
-              <TouchableOpacity style={styles.modalButton} onPress={saveSettings}>
-                <Text style={styles.modalButtonText}>Save Settings</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setSettingsModalVisible(false)}>
-                <Text style={styles.modalButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
+        {renderFeedbackModal()}
+        {renderProfileModal()}
+        {renderBmiModal()}
+        {renderChallengesModal()}
+        {renderMealPlanModal()}
+        {renderSupplementsModal()}
+        {renderCustomExerciseModal()}
+        {renderSettingsModal()}
       </ScrollView>
     </LinearGradient>
   );
 };
-
 
 const styles = StyleSheet.create({
   container: {
@@ -1036,6 +1106,38 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 15,
     fontSize: 14,
+  },
+  feedbackButton: {
+    backgroundColor: '#f1c40f',
+    padding: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 15,
+  },
+  feedbackButtonText: {
+    color: '#121212',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  feedbackOption: {
+    backgroundColor: 'rgba(241, 196, 15, 0.1)',
+    padding: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginVertical: 5,
+  },
+  feedbackOptionText: {
+    color: '#f1c40f',
+    fontSize: 16,
+  },
+  modalText: {
+    color: '#fff',
+    fontSize: 16,
+    marginBottom: 10,
+  },
+  cancelButtonText: {
+    color: '#f1c40f',
+    fontSize: 16,
   },
 });
 
