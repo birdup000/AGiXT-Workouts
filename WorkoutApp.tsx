@@ -580,7 +580,7 @@ const WorkoutApp = () => {
               value={workoutPath}
               onChangeText={setWorkoutPath}
               placeholderTextColor="#ccc"
-            />
+              />
           </ScrollView>
           <TouchableOpacity style={styles.modalButton} onPress={saveProfile}>
             <Text style={styles.modalButtonText}>Save</Text>
@@ -637,6 +637,8 @@ const WorkoutApp = () => {
               <View key={challenge.id} style={styles.challengeItem}>
                 <Text style={styles.challengeName}>{challenge.name}</Text>
                 <Text style={styles.challengeDescription}>{challenge.description}</Text>
+                <Text style={styles.challengeDuration}>Duration: {challenge.duration}</Text>
+                <Text style={styles.challengeDifficulty}>Difficulty: {challenge.difficulty}</Text>
                 <TouchableOpacity
                   style={[styles.challengeButton, challenge.completed && styles.challengeCompleted]}
                   onPress={() => {/* Implement challenge completion logic */}}
@@ -704,7 +706,8 @@ const WorkoutApp = () => {
             {supplements.map((supplement) => (
               <View key={supplement.id} style={styles.supplementItem}>
                 <Text style={styles.supplementName}>{supplement.name}</Text>
-                <Text style={styles.supplementDosage}>{supplement.dosage}</Text>
+                <Text style={styles.supplementDosage}>Dosage: {supplement.dosage}</Text>
+                <Text style={styles.supplementBenefit}>Benefit: {supplement.benefit}</Text>
               </View>
             ))}
           </ScrollView>
@@ -779,7 +782,7 @@ const WorkoutApp = () => {
             placeholderTextColor="#ccc"
           />
           <TouchableOpacity style={styles.modalButton} onPress={saveSettings}>
-          <Text style={styles.modalButtonText}>Save Settings</Text>
+            <Text style={styles.modalButtonText}>Save Settings</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setSettingsModalVisible(false)}>
             <Text style={styles.modalButtonText}>Cancel</Text>
@@ -1262,6 +1265,16 @@ const styles = StyleSheet.create({
     marginTop: 5,
     fontSize: 14,
   },
+  challengeDuration: {
+    color: '#fff',
+    marginTop: 5,
+    fontSize: 14,
+  },
+  challengeDifficulty: {
+    color: '#fff',
+    marginTop: 5,
+    fontSize: 14,
+  },
   challengeButton: {
     backgroundColor: '#f1c40f',
     padding: 8,
@@ -1299,6 +1312,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   supplementDosage: {
+    color: '#fff',
+    marginTop: 5,
+    fontSize: 14,
+  },
+  supplementBenefit: {
     color: '#fff',
     marginTop: 5,
     fontSize: 14,

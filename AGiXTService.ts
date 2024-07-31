@@ -452,7 +452,7 @@ class AGiXTService {
 
       const challenges = this.extractChallenges(response);
 
-      await this.newConversationMessage('assistant', JSON.stringify(challenges, null, 2), conversationName);
+      await this.newConversationMessage('assistant', JSON.stringify({ challenges }, null, 2), conversationName);
 
       return challenges;
     } catch (error) {
@@ -490,7 +490,7 @@ class AGiXTService {
 
       const supplements = this.extractSupplements(response);
 
-      await this.newConversationMessage('assistant', JSON.stringify(supplements, null, 2), conversationName);
+      await this.newConversationMessage('assistant', JSON.stringify({ supplements }, null, 2), conversationName);
 
       return supplements;
     } catch (error) {
@@ -515,7 +515,7 @@ class AGiXTService {
           "breakfast": "Detailed breakfast plan",
           "lunch": "Detailed lunch plan",
           "dinner": "Detailed dinner plan",
-          "snacks": ["List of snacks"]
+          "snacks": ["Snack 1", "Snack 2", "Snack 3"]
         }`;
 
       console.log("Sending prompt to AGiXT:", prompt);
@@ -643,7 +643,6 @@ class AGiXTService {
 
       await this.newConversationMessage('assistant', JSON.stringify(completionAnalysis, null, 2), conversationName);
 
-      // You might want to store this analysis or use it to update the user's profile
       console.log("Workout completion logged and analyzed:", completionAnalysis);
     } catch (error) {
       console.error('Error logging workout completion:', error);
@@ -651,68 +650,66 @@ class AGiXTService {
     }
   }
 
-// Add these methods to the AGiXTService class
+  async getMotivationalQuote(): Promise<string> {
+    await this.initializeWorkoutAgent();
 
-async getMotivationalQuote(): Promise<string> {
-  await this.initializeWorkoutAgent();
+    const conversationName = `MotivationalQuote_${Date.now()}`;
 
-  const conversationName = `MotivationalQuote_${Date.now()}`;
+    try {
+      await this.newConversation(this.agentName, conversationName);
 
-  try {
-    await this.newConversation(this.agentName, conversationName);
+      const prompt = `Provide a motivational quote for fitness enthusiasts. 
+        
+        Please format the response as a JSON object with the following structure:
+        {
+          "quote": "Motivational quote here"
+        }`;
 
-    const prompt = `Provide a motivational quote for fitness enthusiasts. 
-      
-      Please format the response as a JSON object with the following structure:
-      {
-        "quote": "Motivational quote here"
-      }`;
+      console.log("Sending prompt to AGiXT:", prompt);
+      const response = await this.chat(this.agentName, prompt, conversationName);
+      console.log("Received response from AGiXT:", response);
 
-    console.log("Sending prompt to AGiXT:", prompt);
-    const response = await this.chat(this.agentName, prompt, conversationName);
-    console.log("Received response from AGiXT:", response);
+      const quote = this.extractMotivationalQuote(response);
 
-    const quote = this.extractMotivationalQuote(response);
+      await this.newConversationMessage('assistant', JSON.stringify({ quote }, null, 2), conversationName);
 
-    await this.newConversationMessage('assistant', JSON.stringify({ quote }, null, 2), conversationName);
-
-    return quote;
-  } catch (error) {
-    console.error('Error getting motivational quote:', error);
-    throw error;
+      return quote;
+    } catch (error) {
+      console.error('Error getting motivational quote:', error);
+      throw error;
+    }
   }
-}
 
-async getProgressReport(userProfile: UserProfile): Promise<string> {
-  await this.initializeWorkoutAgent();
+  async getProgressReport(userProfile: UserProfile): Promise<string> {
+    await this.initializeWorkoutAgent();
 
-  const conversationName = `ProgressReport_${userProfile.name}_${Date.now()}`;
+    const conversationName = `ProgressReport_${userProfile.name}_${Date.now()}`;
 
-  try {
-    await this.newConversation(this.agentName, conversationName);
+    try {
+      await this.newConversation(this.agentName, conversationName);
 
-    const prompt = `Generate a progress report for ${userProfile.name}. 
-      Consider their fitness goal of ${userProfile.goal} and current fitness level of ${userProfile.fitnessLevel}.
-      
-      Please format the response as a JSON object with the following structure:
-      {
-        "progressReport": "Detailed progress report here"
-      }`;
+      const prompt = `Generate a progress report for ${userProfile.name}. 
+        Consider their fitness goal of ${userProfile.goal} and current fitness level of ${userProfile.fitnessLevel}.
+        
+        Please format the response as a JSON object with the following structure:
+        {
+          "progressReport": "Detailed progress report here"
+        }`;
 
-    console.log("Sending prompt to AGiXT:", prompt);
-    const response = await this.chat(this.agentName, prompt, conversationName);
-    console.log("Received response from AGiXT:", response);
+      console.log("Sending prompt to AGiXT:", prompt);
+      const response = await this.chat(this.agentName, prompt, conversationName);
+      console.log("Received response from AGiXT:", response);
 
-    const progressReport = this.extractProgressReport(response);
+      const progressReport = this.extractProgressReport(response);
 
-    await this.newConversationMessage('assistant', JSON.stringify({ progressReport }, null, 2), conversationName);
+      await this.newConversationMessage('assistant', JSON.stringify({ progressReport }, null, 2), conversationName);
 
-    return progressReport;
-  } catch (error) {
-    console.error('Error getting progress report:', error);
-    throw error;
+      return progressReport;
+    } catch (error) {
+      console.error('Error getting progress report:', error);
+      throw error;
+    }
   }
-}
 }
 
 export default AGiXTService;
