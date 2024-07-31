@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Audio } from 'expo-av';
 import AGiXTService, {
   UserProfile,
   WorkoutPlanResponse,
@@ -28,6 +29,19 @@ import AGiXTService, {
 import { LineChart } from 'react-native-chart-kit';
 
 const { width } = Dimensions.get('window');
+
+interface LeaderboardEntry {
+  id: number;
+  name: string;
+  points: number;
+}
+
+interface Equipment {
+  id: number;
+  name: string;
+  weight?: number;
+  resistance?: string;
+}
 
 const WorkoutApp = () => {
   const [userProfile, setUserProfile] = useState<UserProfile>({
@@ -78,6 +92,8 @@ const WorkoutApp = () => {
   const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
   const [workoutPath, setWorkoutPath] = useState('');
   const [isFirstLaunch, setIsFirstLaunch] = useState(true);
+  const [motivationalQuote, setMotivationalQuote] = useState('');
+  const [progressReport, setProgressReport] = useState('');
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -138,6 +154,12 @@ const WorkoutApp = () => {
   
         const mealPlanData = await agixtService.getMealPlan(userProfile);
         setMealPlan(mealPlanData);
+
+        const quote = await agixtService.getMotivationalQuote();
+        setMotivationalQuote(quote);
+
+        const report = await agixtService.getProgressReport(userProfile);
+        setProgressReport(report);
       }
   
       initializeGamification();
@@ -308,8 +330,16 @@ const WorkoutApp = () => {
     }
 
     try {
-      const adjustedPlan = await agixtService!.adjustWorkoutPlan(userProfile, workoutPlan, level);
-      setWorkoutPlan(adjustedPlan);
+      const feedback: WorkoutFeedback = {
+        workoutId: workoutPlan.conversationName,
+        difficulty: level as 'easy' | 'just right' | 'hard',
+        completedExercises: []
+      };
+      const adjustedPlan = await agixtService!.adjustWorkoutPlan(userProfile, feedback);
+      setWorkoutPlan(prevPlan => ({
+        ...prevPlan!,
+        workoutPlan: adjustedPlan
+      }));
       setSoreness({ ...soreness, overall: level });
       Alert.alert('Workout Adjusted', `Your workout has been adjusted based on your ${level} soreness level.`);
     } catch (error) {
@@ -403,6 +433,31 @@ const WorkoutApp = () => {
     // Add more achievement checks here
     setAchievements(newAchievements);
     setPoints(points + 10);
+  };
+
+  const refreshMotivationalQuote = async () => {
+    if (!agixtService) return;
+
+    try {
+      const quote = await agixtService.getMotivationalQuote();
+      setMotivationalQuote(quote);
+    } catch (error) {
+      console.error('Error refreshing motivational quote:', error);
+      Alert.alert('Error', 'Failed to get a new motivational quote. Please try again.');
+    }
+  };
+
+  const getProgressReport = async () => {
+    if (!agixtService) return;
+
+    try {
+      const report = await agixtService.getProgressReport(userProfile);
+      setProgressReport(report);
+      Alert.alert('Progress Report', report);
+    } catch (error) {
+      console.error('Error getting progress report:', error);
+      Alert.alert('Error', 'Failed to get your progress report. Please try again.');
+    }
   };
 
   const renderWorkoutPlan = () => {
@@ -856,12 +911,18 @@ const WorkoutApp = () => {
             <View style={styles.motivationSection}>
               <Text style={styles.sectionHeader}>Motivation</Text>
               <View style={styles.quoteContainer}>
-                <Text style={styles.quote}>"The only bad workout is the one that didn't happen."</Text>
+                <Text style={styles.quote}>{motivationalQuote}</Text>
               </View>
-              <View style={styles.quoteContainer}>
-                <Text style={styles.quote}>"Push yourself, because no one else is going to do it for you."</Text>
-              </View>
+              <TouchableOpacity style={styles.refreshButton} onPress={refreshMotivationalQuote}>
+                <Ionicons name="refresh-outline" size={24} color="#f1c40f" />
+                <Text style={styles.refreshButtonText}>New Quote</Text>
+              </TouchableOpacity>
             </View>
+
+            <TouchableOpacity style={styles.button} onPress={getProgressReport}>
+              <Ionicons name="stats-chart-outline" size={24} color="#121212" />
+              <Text style={styles.buttonText}>Get Progress Report</Text>
+            </TouchableOpacity>
           </>
         )}
       </ScrollView>
@@ -1037,6 +1098,18 @@ const styles = StyleSheet.create({
     color: '#fff',
     textAlign: 'center',
   },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(241, 196, 15, 0.1)',
+    padding: 10,
+    borderRadius: 10,
+  },
+  refreshButtonText: {
+    color: '#f1c40f',
+    marginLeft: 5,
+  },
   modalContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1058,6 +1131,56 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
   },
+  input: {
+    borderWidth: 1,
+    borderColor: '#f1c40f',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
+    backgroundColor: 'rgba(241, 196, 15, 0.1)',
+    color: '#fff',
+  },
+  feedbackButton: {
+    backgroundColor: '#f1c40f',
+    padding: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 15,
+  },
+  feedbackButtonText: {
+    color: '#121212',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  feedbackOption: {
+    backgroundColor: 'rgba(241, 196, 15, 0.1)',
+    padding: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginVertical: 5,
+  },
+  feedbackOptionText: {
+    color: '#f1c40f',
+    fontSize: 16,
+  },
+  cancelButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#f1c40f',
+    marginTop: 10,
+  },
+  cancelButtonText: {
+    color: '#f1c40f',
+  },
+  loading: {
+    marginVertical: 20,
+  },
+  error: {
+    color: '#e74c3c',
+    textAlign: 'center',
+    marginBottom: 15,
+    fontSize: 14,
+  },
   imagePicker: {
     backgroundColor: 'rgba(241, 196, 15, 0.1)',
     borderWidth: 1,
@@ -1070,18 +1193,6 @@ const styles = StyleSheet.create({
   imagePickerText: {
     color: '#f1c40f',
   },
-  inputContainer: {
-    marginBottom: 15,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#f1c40f',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 10,
-    backgroundColor: 'rgba(241, 196, 15, 0.1)',
-    color: '#fff',
-  },
   modalButton: {
     backgroundColor: '#f1c40f',
     padding: 12,
@@ -1093,11 +1204,6 @@ const styles = StyleSheet.create({
     color: '#121212',
     fontWeight: 'bold',
     fontSize: 16,
-  },
-  cancelButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#f1c40f',
   },
   challengeItem: {
     backgroundColor: 'rgba(241, 196, 15, 0.1)',
@@ -1129,6 +1235,17 @@ const styles = StyleSheet.create({
     color: '#121212',
     fontWeight: 'bold',
   },
+  mealHeader: {
+    color: '#f1c40f',
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginTop: 15,
+  },
+  mealContent: {
+    color: '#fff',
+    marginBottom: 10,
+    fontSize: 14,
+  },
   supplementItem: {
     backgroundColor: 'rgba(241, 196, 15, 0.1)',
     padding: 15,
@@ -1145,61 +1262,9 @@ const styles = StyleSheet.create({
     marginTop: 5,
     fontSize: 14,
   },
-  mealHeader: {
-    color: '#f1c40f',
-    fontWeight: 'bold',
-    fontSize: 16,
-    marginTop: 15,
-  },
-  mealContent: {
-    color: '#fff',
-    marginBottom: 10,
-    fontSize: 14,
-  },
   textArea: {
     height: 100,
     textAlignVertical: 'top',
-  },
-  loading: {
-    marginVertical: 20,
-  },
-  error: {
-    color: '#e74c3c',
-    textAlign: 'center',
-    marginBottom: 15,
-    fontSize: 14,
-  },
-  feedbackButton: {
-    backgroundColor: '#f1c40f',
-    padding: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 15,
-  },
-  feedbackButtonText: {
-    color: '#121212',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  feedbackOption: {
-    backgroundColor: 'rgba(241, 196, 15, 0.1)',
-    padding: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginVertical: 5,
-  },
-  feedbackOptionText: {
-    color: '#f1c40f',
-    fontSize: 16,
-  },
-  modalText: {
-    color: '#fff',
-    fontSize: 16,
-    marginBottom: 10,
-  },
-  cancelButtonText: {
-    color: '#f1c40f',
-    fontSize: 16,
   },
 });
 
