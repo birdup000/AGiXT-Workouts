@@ -9,8 +9,8 @@ import {
   ActivityIndicator,
   Image,
   Modal,
-  Alert,
-  Dimensions
+  Dimensions,
+  Platform
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -42,6 +42,32 @@ interface Equipment {
   weight?: number;
   resistance?: string;
 }
+
+interface AlertModalProps {
+  visible: boolean;
+  title: string;
+  message: string;
+  onClose: () => void;
+}
+
+const AlertModal: React.FC<AlertModalProps> = ({ visible, title, message, onClose }) => (
+  <Modal
+    animationType="fade"
+    transparent={true}
+    visible={visible}
+    onRequestClose={onClose}
+  >
+    <View style={styles.alertModalContainer}>
+      <View style={styles.alertModalContent}>
+        <Text style={styles.alertModalTitle}>{title}</Text>
+        <Text style={styles.alertModalMessage}>{message}</Text>
+        <TouchableOpacity style={styles.alertModalButton} onPress={onClose}>
+          <Text style={styles.alertModalButtonText}>OK</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </Modal>
+);
 
 const WorkoutApp = () => {
   const [userProfile, setUserProfile] = useState<UserProfile>({
@@ -94,6 +120,15 @@ const WorkoutApp = () => {
   const [isFirstLaunch, setIsFirstLaunch] = useState(true);
   const [motivationalQuote, setMotivationalQuote] = useState('');
   const [progressReport, setProgressReport] = useState('');
+  const [alertModalVisible, setAlertModalVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+
+  const showAlert = (title: string, message: string) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertModalVisible(true);
+  };
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -131,7 +166,7 @@ const WorkoutApp = () => {
         }
       } catch (error) {
         console.error('Error initializing app:', error);
-        Alert.alert('Error', 'Failed to initialize the app. Please restart.');
+        showAlert('Error', 'Failed to initialize the app. Please restart.');
       }
     };
   
@@ -190,7 +225,7 @@ const WorkoutApp = () => {
   const initializeVoiceControl = async () => {
     const { status } = await Audio.requestPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission required', 'Microphone access is needed for voice control.');
+      showAlert('Permission required', 'Microphone access is needed for voice control.');
     }
   };
 
@@ -208,12 +243,12 @@ const WorkoutApp = () => {
 
   const generateWorkoutPlan = async () => {
     if (!agixtService) {
-      Alert.alert('Error', 'AGiXT Service is not initialized yet.');
+      showAlert('Error', 'AGiXT Service is not initialized yet.');
       return;
     }
 
     if (workoutPlan && !workoutPlan.completed) {
-      Alert.alert('Workout in Progress', 'Please complete your current workout before generating a new one.');
+      showAlert('Workout in Progress', 'Please complete your current workout before generating a new one.');
       return;
     }
 
@@ -242,7 +277,7 @@ const WorkoutApp = () => {
     const newAchievements = [...achievements];
     if (!newAchievements[0].unlocked) {
       newAchievements[0].unlocked = true;
-      Alert.alert('Achievement Unlocked', 'You completed your first workout!');
+      showAlert('Achievement Unlocked', 'You completed your first workout!');
     }
     setAchievements(newAchievements);
   };
@@ -262,7 +297,7 @@ const WorkoutApp = () => {
 
   const calculateBMI = () => {
     if (!currentWeight || !userProfile.feet || !userProfile.inches) {
-      Alert.alert('Missing Information', 'Please ensure weight, feet, and inches are filled in.');
+      showAlert('Missing Information', 'Please ensure weight, feet, and inches are filled in.');
       return;
     }
 
@@ -278,7 +313,7 @@ const WorkoutApp = () => {
     setBmiHistory([...bmiHistory, newBmiEntry]);
     setCurrentWeight('');
     setBmiModalVisible(false);
-    Alert.alert('BMI Calculated', `Your current BMI is ${newBmiEntry.bmi}`);
+    showAlert('BMI Calculated', `Your current BMI is ${newBmiEntry.bmi}`);
   };
 
   const getBmiCategory = (bmi: number) => {
@@ -290,12 +325,12 @@ const WorkoutApp = () => {
 
   const startVoiceControl = () => {
     setIsListening(true);
-    Alert.alert('Voice Control', 'Voice control activated. Try saying "Start workout" or "Log exercise".');
+    showAlert('Voice Control', 'Voice control activated. Try saying "Start workout" or "Log exercise".');
   };
 
   const createCustomExercise = async () => {
     if (!customExerciseName || !customExerciseDescription) {
-      Alert.alert('Missing Information', 'Please provide both name and description for the custom exercise.');
+      showAlert('Missing Information', 'Please provide both name and description for the custom exercise.');
       return;
     }
 
@@ -308,24 +343,21 @@ const WorkoutApp = () => {
       setCustomExerciseName('');
       setCustomExerciseDescription('');
       setCustomExerciseModalVisible(false);
-      Alert.alert('Success', 'Custom exercise added successfully!');
+      showAlert('Success', 'Custom exercise added successfully!');
     } catch (error) {
       console.error('Error adding custom exercise:', error);
-      Alert.alert('Error', 'Failed to add custom exercise. Please try again.');
+      showAlert('Error', 'Failed to add custom exercise. Please try again.');
     }
   };
 
   const trackSoreness = () => {
-    Alert.alert('Track Soreness', 'How sore are you feeling today?', [
-      { text: 'Low', onPress: () => updateSoreness('low') },
-      { text: 'Medium', onPress: () => updateSoreness('medium') },
-      { text: 'High', onPress: () => updateSoreness('high') },
-    ]);
+    showAlert('Track Soreness', 'How sore are you feeling today?');
+    // Implement soreness tracking UI here
   };
 
   const updateSoreness = async (level: string) => {
     if (!workoutPlan) {
-      Alert.alert('Error', 'No workout plan available to adjust.');
+      showAlert('Error', 'No workout plan available to adjust.');
       return;
     }
 
@@ -341,16 +373,16 @@ const WorkoutApp = () => {
         workoutPlan: adjustedPlan
       }));
       setSoreness({ ...soreness, overall: level });
-      Alert.alert('Workout Adjusted', `Your workout has been adjusted based on your ${level} soreness level.`);
+      showAlert('Workout Adjusted', `Your workout has been adjusted based on your ${level} soreness level.`);
     } catch (error) {
       console.error('Error adjusting workout plan:', error);
-      Alert.alert('Error', 'Failed to adjust workout plan. Please try again.');
+      showAlert('Error', 'Failed to adjust workout plan. Please try again.');
     }
   };
   
   const saveSettings = async () => {
     if (!apiKey.trim() || !apiUri.trim()) {
-      Alert.alert('Invalid Settings', 'Please enter both API Key and API URI.');
+      showAlert('Invalid Settings', 'Please enter both API Key and API URI.');
       return;
     }
   
@@ -366,12 +398,12 @@ const WorkoutApp = () => {
       
       setSettingsModalVisible(false);
       
-      Alert.alert('Settings Saved', 'Your AGiXT settings have been updated and saved.');
+      showAlert('Settings Saved', 'Your AGiXT settings have been updated and saved.');
       
       initializeFeatures();
     } catch (error) {
       console.error('Error saving settings:', error);
-      Alert.alert('Error', 'Failed to save settings. Please try again.');
+      showAlert('Error', 'Failed to save settings. Please try again.');
     }
   };
 
@@ -380,14 +412,11 @@ const WorkoutApp = () => {
     const storedApiUri = await AsyncStorage.getItem('apiUri');
     
     if (storedApiKey !== apiKey || storedApiUri !== apiUri) {
-      Alert.alert(
+      showAlert(
         'Settings Mismatch',
-        'The current settings do not match the saved settings. Would you like to update?',
-        [
-          { text: 'No', style: 'cancel' },
-          { text: 'Yes', onPress: saveSettings }
-        ]
+        'The current settings do not match the saved settings. Would you like to update?'
       );
+      // Implement a way for the user to choose to update or not
     }
   };
 
@@ -397,7 +426,7 @@ const WorkoutApp = () => {
     setIsFirstLaunch(false);
     await generateWorkoutPlan();
     setProfileModalVisible(false);
-    Alert.alert('Profile Saved', 'Your profile has been updated successfully.');
+    showAlert('Profile Saved', 'Your profile has been updated successfully.');
   };
 
   const handleWorkoutCompletion = async (difficulty: 'easy' | 'just right' | 'hard') => {
@@ -420,7 +449,7 @@ const WorkoutApp = () => {
       await generateWorkoutPlan();
     } catch (error) {
       console.error('Error logging workout completion:', error);
-      Alert.alert('Error', 'Failed to record workout feedback. Please try again.');
+      showAlert('Error', 'Failed to record workout feedback. Please try again.');
     }
   };
 
@@ -428,7 +457,7 @@ const WorkoutApp = () => {
     const newAchievements = [...achievements];
     if (!newAchievements[0].unlocked) {
       newAchievements[0].unlocked = true;
-      Alert.alert('Achievement Unlocked', 'You completed your first workout!');
+      showAlert('Achievement Unlocked', 'You completed your first workout!');
     }
     // Add more achievement checks here
     setAchievements(newAchievements);
@@ -443,7 +472,7 @@ const WorkoutApp = () => {
       setMotivationalQuote(quote);
     } catch (error) {
       console.error('Error refreshing motivational quote:', error);
-      Alert.alert('Error', 'Failed to get a new motivational quote. Please try again.');
+      showAlert('Error', 'Failed to get a new motivational quote. Please try again.');
     }
   };
 
@@ -453,10 +482,10 @@ const WorkoutApp = () => {
     try {
       const report = await agixtService.getProgressReport(userProfile);
       setProgressReport(report);
-      Alert.alert('Progress Report', report);
+      showAlert('Progress Report', report);
     } catch (error) {
       console.error('Error getting progress report:', error);
-      Alert.alert('Error', 'Failed to get your progress report. Please try again.');
+      showAlert('Error', 'Failed to get your progress report. Please try again.');
     }
   };
 
@@ -533,7 +562,7 @@ const WorkoutApp = () => {
               <Text style={styles.imagePickerText}>Upload Profile Picture</Text>
             )}
           </TouchableOpacity>
-          <View style={styles.inputContainer}>
+          <ScrollView style={styles.inputScrollView}>
             {Object.keys(userProfile).map((key) => (
               <TextInput
                 key={key}
@@ -552,7 +581,7 @@ const WorkoutApp = () => {
               onChangeText={setWorkoutPath}
               placeholderTextColor="#ccc"
             />
-          </View>
+          </ScrollView>
           <TouchableOpacity style={styles.modalButton} onPress={saveProfile}>
             <Text style={styles.modalButtonText}>Save</Text>
           </TouchableOpacity>
@@ -603,20 +632,22 @@ const WorkoutApp = () => {
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
           <Text style={styles.modalHeader}>Challenges</Text>
-          {challenges.map((challenge) => (
-            <View key={challenge.id} style={styles.challengeItem}>
-              <Text style={styles.challengeName}>{challenge.name}</Text>
-              <Text style={styles.challengeDescription}>{challenge.description}</Text>
-              <TouchableOpacity
-                style={[styles.challengeButton, challenge.completed && styles.challengeCompleted]}
-                onPress={() => {/* Implement challenge completion logic */}}
-              >
-                <Text style={styles.challengeButtonText}>
-                  {challenge.completed ? 'Completed' : 'Complete'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ))}
+          <ScrollView>
+            {challenges.map((challenge) => (
+              <View key={challenge.id} style={styles.challengeItem}>
+                <Text style={styles.challengeName}>{challenge.name}</Text>
+                <Text style={styles.challengeDescription}>{challenge.description}</Text>
+                <TouchableOpacity
+                  style={[styles.challengeButton, challenge.completed && styles.challengeCompleted]}
+                  onPress={() => {/* Implement challenge completion logic */}}
+                >
+                  <Text style={styles.challengeButtonText}>
+                    {challenge.completed ? 'Completed' : 'Complete'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </ScrollView>
           <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setChallengesModalVisible(false)}>
             <Text style={styles.modalButtonText}>Close</Text>
           </TouchableOpacity>
@@ -635,20 +666,22 @@ const WorkoutApp = () => {
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
           <Text style={styles.modalHeader}>Meal Plan</Text>
-          {mealPlan && (
-            <>
-              <Text style={styles.mealHeader}>Breakfast:</Text>
-              <Text style={styles.mealContent}>{mealPlan.breakfast}</Text>
-              <Text style={styles.mealHeader}>Lunch:</Text>
-              <Text style={styles.mealContent}>{mealPlan.lunch}</Text>
-              <Text style={styles.mealHeader}>Dinner:</Text>
-              <Text style={styles.mealContent}>{mealPlan.dinner}</Text>
-              <Text style={styles.mealHeader}>Snacks:</Text>
-              {mealPlan.snacks.map((snack, index) => (
-                <Text key={index} style={styles.mealContent}>{snack}</Text>
-              ))}
-            </>
-          )}
+          <ScrollView>
+            {mealPlan && (
+              <>
+                <Text style={styles.mealHeader}>Breakfast:</Text>
+                <Text style={styles.mealContent}>{mealPlan.breakfast}</Text>
+                <Text style={styles.mealHeader}>Lunch:</Text>
+                <Text style={styles.mealContent}>{mealPlan.lunch}</Text>
+                <Text style={styles.mealHeader}>Dinner:</Text>
+                <Text style={styles.mealContent}>{mealPlan.dinner}</Text>
+                <Text style={styles.mealHeader}>Snacks:</Text>
+                {mealPlan.snacks.map((snack, index) => (
+                  <Text key={index} style={styles.mealContent}>{snack}</Text>
+                ))}
+              </>
+            )}
+          </ScrollView>
           <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setMealPlanModalVisible(false)}>
             <Text style={styles.modalButtonText}>Close</Text>
           </TouchableOpacity>
@@ -667,12 +700,14 @@ const WorkoutApp = () => {
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
           <Text style={styles.modalHeader}>Supplement Plan</Text>
-          {supplements.map((supplement) => (
-            <View key={supplement.id} style={styles.supplementItem}>
-              <Text style={styles.supplementName}>{supplement.name}</Text>
-              <Text style={styles.supplementDosage}>{supplement.dosage}</Text>
-            </View>
-          ))}
+          <ScrollView>
+            {supplements.map((supplement) => (
+              <View key={supplement.id} style={styles.supplementItem}>
+                <Text style={styles.supplementName}>{supplement.name}</Text>
+                <Text style={styles.supplementDosage}>{supplement.dosage}</Text>
+              </View>
+            ))}
+          </ScrollView>
           <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setSupplementsModalVisible(false)}>
             <Text style={styles.modalButtonText}>Close</Text>
           </TouchableOpacity>
@@ -744,7 +779,7 @@ const WorkoutApp = () => {
             placeholderTextColor="#ccc"
           />
           <TouchableOpacity style={styles.modalButton} onPress={saveSettings}>
-            <Text style={styles.modalButtonText}>Save Settings</Text>
+          <Text style={styles.modalButtonText}>Save Settings</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setSettingsModalVisible(false)}>
             <Text style={styles.modalButtonText}>Cancel</Text>
@@ -934,6 +969,12 @@ const WorkoutApp = () => {
       {renderSupplementsModal()}
       {renderCustomExerciseModal()}
       {renderSettingsModal()}
+      <AlertModal
+        visible={alertModalVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertModalVisible(false)}
+      />
     </LinearGradient>
   );
 };
@@ -1265,6 +1306,50 @@ const styles = StyleSheet.create({
   textArea: {
     height: 100,
     textAlignVertical: 'top',
+  },
+  alertModalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  alertModalContent: {
+    backgroundColor: '#24243e',
+    borderRadius: 10,
+    padding: 20,
+    alignItems: 'center',
+    elevation: 5,
+  },
+  alertModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#f1c40f',
+    marginBottom: 10,
+  },
+  alertModalMessage: {
+    fontSize: 16,
+    color: '#fff',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  alertModalButton: {
+    backgroundColor: '#f1c40f',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+  },
+  alertModalButtonText: {
+    color: '#121212',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  modalText: {
+    color: '#fff',
+    fontSize: 16,
+    marginBottom: 15,
+  },
+  inputScrollView: {
+    maxHeight: 300,
   },
 });
 
