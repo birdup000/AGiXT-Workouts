@@ -1,5 +1,3 @@
-// WorkoutApp.tsx
-
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -13,13 +11,15 @@ import {
   Modal,
   Dimensions,
   Platform,
-  Alert
+  Alert,
+  SafeAreaView
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Audio } from 'expo-av';
+import { LineChart } from 'react-native-chart-kit';
 import AGiXTService, {
   UserProfile,
   WorkoutPlanResponse,
@@ -34,9 +34,9 @@ import AGiXTService, {
   PersonalizedRecommendation,
   FitnessForecast
 } from './AGiXTService';
-import { LineChart } from 'react-native-chart-kit';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+const isLargeScreen = width > 768;
 
 interface LeaderboardEntry {
   id: number;
@@ -100,6 +100,9 @@ const WorkoutApp = () => {
   const [achievements, setAchievements] = useState([
     { id: 1, name: 'First Workout', description: 'Complete your first workout', unlocked: false },
     { id: 2, name: 'Week Warrior', description: 'Complete all workouts for a week', unlocked: false },
+    { id: 3, name: 'Nutrition Master', description: 'Follow meal plan for a month', unlocked: false },
+    { id: 4, name: 'Challenge Champion', description: 'Complete 5 challenges', unlocked: false },
+    { id: 5, name: 'BMI Improver', description: 'Improve your BMI by 1 point', unlocked: false },
   ]);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -136,6 +139,9 @@ const WorkoutApp = () => {
   const [anomalyDetectionResult, setAnomalyDetectionResult] = useState<AnomalyDetectionResult | null>(null);
   const [personalizedRecommendation, setPersonalizedRecommendation] = useState<PersonalizedRecommendation | null>(null);
   const [fitnessForecast, setFitnessForecast] = useState<FitnessForecast[]>([]);
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [isSideMenuOpen, setIsSideMenuOpen] = useState(isLargeScreen);
+  const [workoutsCompleted, setWorkoutsCompleted] = useState(0);
 
   const showAlert = (title: string, message: string) => {
     setAlertTitle(title);
@@ -151,6 +157,8 @@ const WorkoutApp = () => {
         const storedProfile = await AsyncStorage.getItem('userProfile');
         const storedWorkoutPath = await AsyncStorage.getItem('workoutPath');
         const storedWorkoutPlan = await AsyncStorage.getItem('currentWorkoutPlan');
+        const storedPoints = await AsyncStorage.getItem('points');
+        const storedWorkoutsCompleted = await AsyncStorage.getItem('workoutsCompleted');
         
         if (storedApiKey && storedApiUri) {
           setApiKey(storedApiKey);
@@ -172,6 +180,9 @@ const WorkoutApp = () => {
           } else {
             setIsFirstLaunch(true);
           }
+
+          if (storedPoints) setPoints(parseInt(storedPoints));
+          if (storedWorkoutsCompleted) setWorkoutsCompleted(parseInt(storedWorkoutsCompleted));
           
           await initializeFeatures();
         } else {
@@ -186,6 +197,38 @@ const WorkoutApp = () => {
     initializeApp();
   }, []);
 
+  const loadMealPlan = async () => {
+    try {
+      const storedMealPlan = await AsyncStorage.getItem('mealPlan');
+      if (storedMealPlan) {
+        setMealPlan(JSON.parse(storedMealPlan));
+      } else {
+        const newMealPlan = await agixtService!.getMealPlan(userProfile);
+        setMealPlan(newMealPlan);
+        await AsyncStorage.setItem('mealPlan', JSON.stringify(newMealPlan));
+      }
+    } catch (error) {
+      console.error('Error loading meal plan:', error);
+      showAlert('Error', 'Failed to load meal plan. Please try again.');
+    }
+  };
+
+  const loadChallenges = async () => {
+    try {
+      const storedChallenges = await AsyncStorage.getItem('challenges');
+      if (storedChallenges) {
+        setChallenges(JSON.parse(storedChallenges));
+      } else {
+        const newChallenges = await agixtService!.getChallenges(userProfile);
+        setChallenges(newChallenges);
+        await AsyncStorage.setItem('challenges', JSON.stringify(newChallenges));
+      }
+    } catch (error) {
+      console.error('Error loading challenges:', error);
+      showAlert('Error', 'Failed to load challenges. Please try again.');
+    }
+  };
+
   const initializeFeatures = async () => {
     if (!agixtService) {
       console.error('AGiXT Service is not initialized');
@@ -194,14 +237,8 @@ const WorkoutApp = () => {
   
     try {
       if (userProfile.name && userProfile.age && userProfile.gender) {
-        const challengesData = await agixtService.getChallenges(userProfile);
-        setChallenges(challengesData);
-  
-        const supplementsData = await agixtService.getSupplements(userProfile);
-        setSupplements(supplementsData);
-  
-        const mealPlanData = await agixtService.getMealPlan(userProfile);
-        setMealPlan(mealPlanData);
+        await loadChallenges();
+        await loadMealPlan();
 
         const quote = await agixtService.getMotivationalQuote();
         setMotivationalQuote(quote);
@@ -221,10 +258,12 @@ const WorkoutApp = () => {
   };
 
   const initializeGamification = () => {
-    setPoints(0);
     setLeaderboard([
       { id: 1, name: 'John Doe', points: 1000 },
       { id: 2, name: 'Jane Smith', points: 950 },
+      { id: 3, name: 'Bob Johnson', points: 900 },
+      { id: 4, name: 'Alice Williams', points: 850 },
+      { id: 5, name: 'Charlie Brown', points: 800 },
     ]);
   };
 
@@ -232,6 +271,8 @@ const WorkoutApp = () => {
     setConnectedEquipment([
       { id: 1, name: 'Smart Dumbbell', weight: 20 },
       { id: 2, name: 'Smart Resistance Band', resistance: 'Medium' },
+      { id: 3, name: 'Smart Yoga Mat' }, // Remove the duplicate 'name' property
+      { id: 4, name: 'Smart Kettlebell', weight: 15 },
     ]);
   };
 
@@ -247,6 +288,8 @@ const WorkoutApp = () => {
       legs: 'low',
       arms: 'medium',
       back: 'high',
+      chest: 'low',
+      shoulders: 'medium',
     });
   };
 
@@ -274,6 +317,7 @@ const WorkoutApp = () => {
         setWorkoutPlan(response);
         await AsyncStorage.setItem('currentWorkoutPlan', JSON.stringify(response));
         setPoints(points + 10);
+        await AsyncStorage.setItem('points', (points + 10).toString());
         checkAchievements();
       } else {
         setError('Invalid workout plan received');
@@ -291,8 +335,17 @@ const WorkoutApp = () => {
     if (!newAchievements[0].unlocked) {
       newAchievements[0].unlocked = true;
       showAlert('Achievement Unlocked', 'You completed your first workout!');
+      setPoints(points + 50);
     }
+    if (workoutsCompleted >= 7 && !newAchievements[1].unlocked) {
+      newAchievements[1].unlocked = true;
+      showAlert('Achievement Unlocked', 'You completed all workouts for a week!');
+      setPoints(points + 100);
+    }
+    // Add more achievement checks here
     setAchievements(newAchievements);
+    AsyncStorage.setItem('achievements', JSON.stringify(newAchievements));
+    AsyncStorage.setItem('points', points.toString());
   };
 
   const pickImage = async () => {
@@ -323,10 +376,27 @@ const WorkoutApp = () => {
       bmi: parseFloat(bmi.toFixed(2)),
     };
 
-    setBmiHistory([...bmiHistory, newBmiEntry]);
+    const newBmiHistory = [...bmiHistory, newBmiEntry];
+    setBmiHistory(newBmiHistory);
+    AsyncStorage.setItem('bmiHistory', JSON.stringify(newBmiHistory));
+
     setCurrentWeight('');
     setBmiModalVisible(false);
     showAlert('BMI Calculated', `Your current BMI is ${newBmiEntry.bmi}`);
+
+    // Check for BMI improvement achievement
+    if (bmiHistory.length > 0) {
+      const previousBmi = bmiHistory[bmiHistory.length - 1].bmi;
+      if (newBmiEntry.bmi < previousBmi && !achievements[4].unlocked) {
+        const newAchievements = [...achievements];
+        newAchievements[4].unlocked = true;
+        setAchievements(newAchievements);
+        AsyncStorage.setItem('achievements', JSON.stringify(newAchievements));
+        showAlert('Achievement Unlocked', 'You improved your BMI!');
+        setPoints(points + 75);
+        AsyncStorage.setItem('points', (points + 75).toString());
+      }
+    }
   };
 
   const getBmiCategory = (bmi: number) => {
@@ -339,6 +409,7 @@ const WorkoutApp = () => {
   const startVoiceControl = () => {
     setIsListening(true);
     showAlert('Voice Control', 'Voice control activated. Try saying "Start workout" or "Log exercise".');
+    // Implement actual voice control logic here
   };
 
   const createCustomExercise = async () => {
@@ -357,6 +428,8 @@ const WorkoutApp = () => {
       setCustomExerciseDescription('');
       setCustomExerciseModalVisible(false);
       showAlert('Success', 'Custom exercise added successfully!');
+      setPoints(points + 15);
+      AsyncStorage.setItem('points', (points + 15).toString());
     } catch (error) {
       console.error('Error adding custom exercise:', error);
       showAlert('Error', 'Failed to add custom exercise. Please try again.');
@@ -425,11 +498,20 @@ const WorkoutApp = () => {
     const storedApiUri = await AsyncStorage.getItem('apiUri');
     
     if (storedApiKey !== apiKey || storedApiUri !== apiUri) {
-      showAlert(
+      Alert.alert(
         'Settings Mismatch',
-        'The current settings do not match the saved settings. Would you like to update?'
+        'The current settings do not match the saved settings. Would you like to update?',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel'
+          },
+          {
+            text: 'Update',
+            onPress: saveSettings
+          }
+        ]
       );
-      // Implement a way for the user to choose to update or not
     }
   };
 
@@ -458,7 +540,12 @@ const WorkoutApp = () => {
       setWorkoutPlan({ ...workoutPlan, completed: true });
       await AsyncStorage.setItem('currentWorkoutPlan', JSON.stringify({ ...workoutPlan, completed: true }));
       setFeedbackModalVisible(false);
+      const newWorkoutsCompleted = workoutsCompleted + 1;
+      setWorkoutsCompleted(newWorkoutsCompleted);
+      await AsyncStorage.setItem('workoutsCompleted', newWorkoutsCompleted.toString());
       updateAchievements();
+      setPoints(points + 25);
+      await AsyncStorage.setItem('points', (points + 25).toString());
       await generateWorkoutPlan();
     } catch (error) {
       console.error('Error logging workout completion:', error);
@@ -471,10 +558,16 @@ const WorkoutApp = () => {
     if (!newAchievements[0].unlocked) {
       newAchievements[0].unlocked = true;
       showAlert('Achievement Unlocked', 'You completed your first workout!');
+      setPoints(points + 50);
     }
-    // Add more achievement checks here
+    if (workoutsCompleted >= 7 && !newAchievements[1].unlocked) {
+      newAchievements[1].unlocked = true;
+      showAlert('Achievement Unlocked', 'You completed all workouts for a week!');
+      setPoints(points + 100);
+    }
     setAchievements(newAchievements);
-    setPoints(points + 10);
+    AsyncStorage.setItem('achievements', JSON.stringify(newAchievements));
+    AsyncStorage.setItem('points', points.toString());
   };
 
   const refreshMotivationalQuote = async () => {
@@ -593,301 +686,163 @@ const WorkoutApp = () => {
     );
   };
 
-  const renderWorkoutPlan = () => {
-    if (!workoutPlan || !workoutPlan.workoutPlan) return null;
+  const renderSideMenu = () => (
+    <View style={[styles.sideMenu, !isSideMenuOpen && styles.sideMenuClosed]}>
+      <TouchableOpacity style={styles.menuItem} onPress={() => setActiveTab('dashboard')}>
+        <Ionicons name="home-outline" size={24} color="#f1c40f" />
+        <Text style={styles.menuItemText}>Dashboard</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.menuItem} onPress={() => setActiveTab('workout')}>
+        <Ionicons name="fitness-outline" size={24} color="#f1c40f" />
+        <Text style={styles.menuItemText}>Workout</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.menuItem} onPress={() => setActiveTab('nutrition')}>
+        <Ionicons name="nutrition-outline" size={24} color="#f1c40f" />
+        <Text style={styles.menuItemText}>Nutrition</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.menuItem} onPress={() => setActiveTab('progress')}>
+        <Ionicons name="trending-up-outline" size={24} color="#f1c40f" />
+        <Text style={styles.menuItemText}>Progress</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.menuItem} onPress={() => setActiveTab('challenges')}>
+        <Ionicons name="trophy-outline" size={24} color="#f1c40f" />
+        <Text style={styles.menuItemText}>Challenges</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.menuItem} onPress={() => setSettingsModalVisible(true)}>
+        <Ionicons name="settings-outline" size={24} color="#f1c40f" />
+        <Text style={styles.menuItemText}>Settings</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
-    return (
-      <View style={styles.workoutPlanContainer}>
-        <Text style={styles.planTitle}>Workout Plan:</Text>
-        {workoutPlan.workoutPlan.weeklyPlan.map((dayPlan, index) => (
-          <View key={index} style={styles.dayPlan}>
-            <Text style={styles.dayHeader}>{dayPlan.day}</Text>
-            {dayPlan.exercises.map((exercise, exIndex) => (
-              <View key={exIndex} style={styles.exercise}>
-                <Text style={styles.exerciseName}>{exercise.name}</Text>
-                <Text style={styles.exerciseDetail}>Sets: {exercise.sets}</Text>
-                <Text style={styles.exerciseDetail}>Reps: {exercise.reps}</Text>
-                <Text style={styles.exerciseDetail}>Rest: {exercise.rest}</Text>
-                <Text style={styles.exerciseDetail}>Details: {exercise.text}</Text>
-              </View>
-            ))}
-          </View>
-        ))}
-        <Text style={styles.nutritionAdvice}>Nutrition Advice: {workoutPlan.workoutPlan.nutritionAdvice}</Text>
-        <TouchableOpacity style={styles.feedbackButton} onPress={() => setFeedbackModalVisible(true)}>
-          <Text style={styles.feedbackButtonText}>Provide Workout Feedback</Text>
+  const renderTopBar = () => (
+    <View style={styles.topBar}>
+      {!isLargeScreen && (
+        <TouchableOpacity onPress={() => setIsSideMenuOpen(!isSideMenuOpen)}>
+          <Ionicons name="menu-outline" size={24} color="#f1c40f" />
         </TouchableOpacity>
-      </View>
-    );
+      )}
+      <Text style={styles.topBarTitle}>AGiXT Workouts</Text>
+      <TouchableOpacity onPress={() => setProfileModalVisible(true)}>
+        <Ionicons name="person-circle-outline" size={24} color="#f1c40f" />
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'dashboard':
+        return <DashboardTab 
+          userProfile={userProfile} 
+          workoutPlan={workoutPlan} 
+          points={points}
+          motivationalQuote={motivationalQuote}
+          refreshQuote={refreshMotivationalQuote}
+          onStartWorkout={() => setActiveTab('workout')}
+        />;
+      case 'workout':
+        return <WorkoutTab 
+          workoutPlan={workoutPlan} 
+          onGenerateWorkout={generateWorkoutPlan} 
+          onCompleteWorkout={handleWorkoutCompletion}
+          customExercises={customExercises}
+          onCreateCustomExercise={() => setCustomExerciseModalVisible(true)}
+        />;
+      case 'nutrition':
+        return <NutritionTab 
+          mealPlan={mealPlan} 
+          supplements={supplements}
+          onUpdateMealPlan={loadMealPlan}
+          onViewSupplements={() => setSupplementsModalVisible(true)}
+        />;
+      case 'progress':
+        return <ProgressTab 
+          bmiHistory={bmiHistory} 
+          progressReport={progressReport}
+          onCalculateBMI={() => setBmiModalVisible(true)}
+          onGenerateReport={getProgressReport}
+          fitnessForecast={fitnessForecast}
+          onGenerateForecast={generateFitnessForecast}
+        />;
+      case 'challenges':
+        return <ChallengesTab 
+          challenges={challenges} 
+          onCompleteChallenge={completeChallenge}
+          onRefreshChallenges={loadChallenges}
+        />;
+      default:
+        return <DashboardTab 
+          userProfile={userProfile} 
+          workoutPlan={workoutPlan} 
+          points={points}
+          motivationalQuote={motivationalQuote}
+          refreshQuote={refreshMotivationalQuote}
+          onStartWorkout={() => setActiveTab('workout')}
+        />;
+    }
   };
 
-  const renderAdaptiveWorkoutPlan = () => {
-    if (!adaptiveWorkoutPlan) return null;
-    return (
-      <View style={styles.sectionContainer}>
-        <Text style={styles.sectionHeader}>Adaptive Workout Plan</Text>
-        <Text>Adaptation Level: {adaptiveWorkoutPlan.adaptationLevel.toFixed(2)}</Text>
-        {/* Render the workout plan similar to the existing renderWorkoutPlan function */}
-      </View>
+  const completeChallenge = async (challengeId: number) => {
+    const updatedChallenges = challenges.map(challenge => 
+      challenge.id === challengeId ? { ...challenge, completed: true } : challenge
     );
-  };
+    setChallenges(updatedChallenges);
+    await AsyncStorage.setItem('challenges', JSON.stringify(updatedChallenges));
+    
+    setPoints(points + 50);
+    await AsyncStorage.setItem('points', (points + 50).toString());
 
-  const renderPersonalizedRecommendations = () => {
-    if (!personalizedRecommendation) return null;
-    return (
-      <View style={styles.sectionContainer}>
-        <Text style={styles.sectionHeader}>Personalized Recommendations</Text>
-        <Text>Recommended Exercises: {personalizedRecommendation.exercises.join(', ')}</Text>
-        <Text>Nutrition Advice: {personalizedRecommendation.nutritionAdvice}</Text>
-      </View>
-    );
-  };
+    // Check for challenge achievement
+    const completedChallenges = updatedChallenges.filter(c => c.completed).length;
+    if (completedChallenges >= 5 && !achievements[3].unlocked) {
+      const newAchievements = [...achievements];
+      newAchievements[3].unlocked = true;
+      setAchievements(newAchievements);
+      await AsyncStorage.setItem('achievements', JSON.stringify(newAchievements));
+      showAlert('Achievement Unlocked', 'You completed 5 challenges!');
+      setPoints(points + 100);
+      await AsyncStorage.setItem('points', (points + 100).toString());
+    }
 
-  const renderFitnessForecast = () => {
-    if (fitnessForecast.length === 0) return null;
-    return (
-      <View style={styles.sectionContainer}>
-        <Text style={styles.sectionHeader}>Fitness Forecast</Text>
-        {fitnessForecast.map((forecast, index) => (
-          <View key={index} style={styles.forecastItem}>
-            <Text>Date: {forecast.date}</Text>
-            <Text>Predicted Weight: {forecast.predictedMetrics.weight.toFixed(1)} kg</Text>
-            <Text>Predicted Body Fat: {forecast.predictedMetrics.bodyFat.toFixed(1)}%</Text>
-            <Text>Predicted Muscle Gain: {forecast.predictedMetrics.muscleGain.toFixed(1)} kg</Text>
-          </View>
-        ))}
-      </View>
-    );
-  };
-
-  const renderAIInsights = () => {
-    return (
-      <View style={styles.sectionContainer}>
-        <Text style={styles.sectionHeader}>AI Insights</Text>
-        {feedbackAnalysis && (
-          <View style={styles.insightItem}>
-            <Text style={styles.insightTitle}>Latest Feedback Analysis:</Text>
-            <Text>Sentiment: {feedbackAnalysis.sentiment}</Text>
-            <Text>Top Issue: {feedbackAnalysis.commonIssues[0]}</Text>
-          </View>
-        )}
-        {anomalyDetectionResult && (
-          <View style={styles.insightItem}>
-            <Text style={styles.insightTitle}>Anomaly Detection:</Text>
-            <Text>{anomalyDetectionResult.isAnomaly ? 'Anomaly Detected' : 'No Anomalies'}</Text>
-          </View>
-        )}
-        {adaptiveWorkoutPlan && (
-          <View style={styles.insightItem}>
-            <Text style={styles.insightTitle}>Workout Adaptation Level:</Text>
-            <Text>{adaptiveWorkoutPlan.adaptationLevel.toFixed(2)}</Text>
-          </View>
-        )}
-      </View>
-    );
+    showAlert('Challenge Completed', 'Congratulations! You\'ve completed a challenge.');
   };
 
   return (
-    <LinearGradient colors={['#0f0c29', '#302b63', '#24243e']} style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {isFirstLaunch ? (
-          <View>
-            <Text style={styles.headerText}>Welcome to the Workout App!</Text>
-            <Text style={styles.subHeaderText}>Let's set up your profile:</Text>
-            {Object.keys(userProfile).map((key) => (
-              <TextInput
-                key={key}
-                style={styles.input}
-                placeholder={key.charAt(0).toUpperCase() + key.slice(1)}
-                value={userProfile[key as keyof UserProfile]}
-                onChangeText={(text) => handleInputChange(key as keyof UserProfile, text)}
-                placeholderTextColor="#ccc"
-                keyboardType={key === 'age' || key === 'weight' || key === 'feet' || key === 'inches' || key === 'daysPerWeek' ? 'numeric' : 'default'}
-              />
-            ))}
-            <TextInput
-              style={styles.input}
-              placeholder="Workout Path (e.g., muscle builder, weight loss)"
-              value={workoutPath}
-              onChangeText={setWorkoutPath}
-              placeholderTextColor="#ccc"
-            />
-            <TouchableOpacity style={styles.button} onPress={saveProfile}>
-              <Text style={styles.buttonText}>Save Profile and Start</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <>
-            <View style={styles.header}>
-              {profileImage ? (
-                <Image source={{ uri: profileImage }} style={styles.profileImage} />
-              ) : (
-                <Ionicons name="person-circle-outline" size={80} color="#f1c40f" />
-              )}
-              <Text style={styles.headerText}>Welcome, {userProfile.name || 'Fitness Warrior'}</Text>
-            </View>
-
-            <View style={styles.statsContainer}>
-              <View style={styles.statItem}>
-                <Ionicons name="medal-outline" size={24} color="#f1c40f" />
-                <Text style={styles.statValue}>{points}</Text>
-                <Text style={styles.statLabel}>Points</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Ionicons name="barbell-outline" size={24} color="#f1c40f" />
-                <Text style={styles.statValue}>{workoutPlan?.workoutPlan?.weeklyPlan?.length || 0}</Text>
-                <Text style={styles.statLabel}>Workouts</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Ionicons name="flame-outline" size={24} color="#f1c40f" />
-                <Text style={styles.statValue}>{challenges.length}</Text>
-                <Text style={styles.statLabel}>Challenges</Text>
-              </View>
-            </View>
-
-            <TouchableOpacity style={styles.button} onPress={generateWorkoutPlan}>
-              <Ionicons name="fitness-outline" size={24} color="#121212" />
-              <Text style={styles.buttonText}>Generate Workout Plan</Text>
-            </TouchableOpacity>
-
-            <View style={styles.actionButtons}>
-              <TouchableOpacity style={styles.actionButton} onPress={() => setProfileModalVisible(true)}>
-                <Ionicons name="person-outline" size={24} color="#f1c40f" />
-                <Text style={styles.actionButtonText}>Edit Profile</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton} onPress={() => setBmiModalVisible(true)}>
-                <Ionicons name="calculator-outline" size={24} color="#f1c40f" />
-                <Text style={styles.actionButtonText}>BMI</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton} onPress={() => setChallengesModalVisible(true)}>
-                <Ionicons name="trophy-outline" size={24} color="#f1c40f" />
-                <Text style={styles.actionButtonText}>Challenges</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton} onPress={() => setMealPlanModalVisible(true)}>
-                <Ionicons name="nutrition-outline" size={24} color="#f1c40f" />
-                <Text style={styles.actionButtonText}>Meal Plan</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton} onPress={() => setSupplementsModalVisible(true)}>
-                <Ionicons name="flask-outline" size={24} color="#f1c40f" />
-                <Text style={styles.actionButtonText}>Supplements</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton} onPress={() => setCustomExerciseModalVisible(true)}>
-                <Ionicons name="add-circle-outline" size={24} color="#f1c40f" />
-                <Text style={styles.actionButtonText}>Custom Exercise</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton} onPress={startVoiceControl}>
-                <Ionicons name="mic-outline" size={24} color="#f1c40f" />
-                <Text style={styles.actionButtonText}>Voice Control</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton} onPress={trackSoreness}>
-                <Ionicons name="body-outline" size={24} color="#f1c40f" />
-                <Text style={styles.actionButtonText}>Track Soreness</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.actionButton} 
-                onPress={() => {
-                  setSettingsModalVisible(true);
-                  checkSettingsConsistency();
-                }}
-              >
-                <Ionicons name="settings-outline" size={24} color="#f1c40f" />
-                <Text style={styles.actionButtonText}>Settings</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.aiFeatures}>
-              <TouchableOpacity style={styles.aiFeatureButton} onPress={handleFeedbackSubmission}>
-                <Ionicons name="chatbubble-ellipses-outline" size={24} color="#f1c40f" />
-                <Text style={styles.aiFeatureButtonText}>Analyze Feedback</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.aiFeatureButton} onPress={generateAdaptiveWorkout}>
-                <Ionicons name="fitness-outline" size={24} color="#f1c40f" />
-                <Text style={styles.aiFeatureButtonText}>Adaptive Workout</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.aiFeatureButton} onPress={checkForAnomalies}>
-                <Ionicons name="warning-outline" size={24} color="#f1c40f" />
-                <Text style={styles.aiFeatureButtonText}>Check Anomalies</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.aiFeatureButton} onPress={getPersonalizedRecommendations}>
-                <Ionicons name="bulb-outline" size={24} color="#f1c40f" />
-                <Text style={styles.aiFeatureButtonText}>Get Recommendations</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.aiFeatureButton} onPress={generateFitnessForecast}>
-                <Ionicons name="trending-up-outline" size={24} color="#f1c40f" />
-                <Text style={styles.aiFeatureButtonText}>Fitness Forecast</Text>
-              </TouchableOpacity>
-            </View>
-
-            {loading && <ActivityIndicator size="large" color="#f1c40f" style={styles.loading} />}
-            {error && <Text style={styles.error}>{error}</Text>}
-            
-            {renderWorkoutPlan()}
-            {renderAdaptiveWorkoutPlan()}
-            {renderPersonalizedRecommendations()}
-            {renderFitnessForecast()}
-            {renderAIInsights()}
-
-            {bmiHistory.length > 0 && (
-              <View style={styles.chartContainer}>
-                <Text style={styles.chartTitle}>BMI History</Text>
-                <LineChart
-                  data={{
-                    labels: bmiHistory.map(entry => new Date(entry.date).toLocaleDateString()),
-                    datasets: [
-                      {
-                        data: bmiHistory.map(entry => entry.bmi),
-                        color: (opacity = 1) => `rgba(241, 196, 15, ${opacity})`,
-                        strokeWidth: 2,
-                      },
-                    ],
-                  }}
-                  width={width - 40}
-                  height={220}
-                  chartConfig={{
-                    backgroundColor: '#1e1e1e',
-                    backgroundGradientFrom: '#302b63',
-                    backgroundGradientTo: '#24243e',
-                    decimalPlaces: 1,
-                    color: (opacity = 1) => `rgba(241, 196, 15, ${opacity})`,
-                    labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-                    style: {
-                      borderRadius: 16,
-                    },
-                    propsForDots: {
-                      r: '6',
-                      strokeWidth: '2',
-                      stroke: '#f1c40f',
-                    },
-                  }}
-                  bezier
-                  style={styles.chart}
-                />
-                <Text style={styles.bmiCategory}>
-                  Current BMI Category: {getBmiCategory(bmiHistory[bmiHistory.length - 1].bmi)}
-                </Text>
+    <SafeAreaView style={styles.container}>
+      <LinearGradient colors={['#0f0c29', '#302b63', '#24243e']} style={styles.gradient}>
+        {renderTopBar()}
+        <View style={styles.content}>
+          {isLargeScreen && renderSideMenu()}
+          <View style={styles.mainContent}>
+            {!isLargeScreen && (
+              <View style={styles.tabBar}>
+                <TouchableOpacity style={styles.tab} onPress={() => setActiveTab('dashboard')}>
+                  <Ionicons name="home-outline" size={24} color="#f1c40f" />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.tab} onPress={() => setActiveTab('workout')}>
+                  <Ionicons name="fitness-outline" size={24} color="#f1c40f" />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.tab} onPress={() => setActiveTab('nutrition')}>
+                  <Ionicons name="nutrition-outline" size={24} color="#f1c40f" />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.tab} onPress={() => setActiveTab('progress')}>
+                  <Ionicons name="trending-up-outline" size={24} color="#f1c40f" />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.tab} onPress={() => setActiveTab('challenges')}>
+                  <Ionicons name="trophy-outline" size={24} color="#f1c40f" />
+                </TouchableOpacity>
               </View>
             )}
-
-            <View style={styles.motivationSection}>
-              <Text style={styles.sectionHeader}>Motivation</Text>
-              <View style={styles.quoteContainer}>
-                <Text style={styles.quote}>{motivationalQuote}</Text>
-              </View>
-              <TouchableOpacity style={styles.refreshButton} onPress={refreshMotivationalQuote}>
-                <Ionicons name="refresh-outline" size={24} color="#f1c40f" />
-                <Text style={styles.refreshButtonText}>New Quote</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity style={styles.button} onPress={getProgressReport}>
-              <Ionicons name="stats-chart-outline" size={24} color="#121212" />
-              <Text style={styles.buttonText}>Get Progress Report</Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </ScrollView>
-
-      {/* Modals */}
+            {renderTabContent()}
+          </View>
+        </View>
+      </LinearGradient>
+      <AlertModal
+        visible={alertModalVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertModalVisible(false)}
+      />
       <Modal
         animationType="slide"
         transparent={true}
@@ -933,7 +888,6 @@ const WorkoutApp = () => {
           </View>
         </View>
       </Modal>
-
       <Modal
         animationType="slide"
         transparent={true}
@@ -960,7 +914,6 @@ const WorkoutApp = () => {
           </View>
         </View>
       </Modal>
-
       <Modal
         animationType="slide"
         transparent={true}
@@ -979,7 +932,8 @@ const WorkoutApp = () => {
                   <Text style={styles.challengeDifficulty}>Difficulty: {challenge.difficulty}</Text>
                   <TouchableOpacity
                     style={[styles.challengeButton, challenge.completed && styles.challengeCompleted]}
-                    onPress={() => {/* Implement challenge completion logic */}}
+                    onPress={() => completeChallenge(challenge.id)}
+                    disabled={challenge.completed}
                   >
                     <Text style={styles.challengeButtonText}>
                       {challenge.completed ? 'Completed' : 'Complete'}
@@ -994,7 +948,30 @@ const WorkoutApp = () => {
           </View>
         </View>
       </Modal>
-
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={supplementsModalVisible}
+        onRequestClose={() => setSupplementsModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalHeader}>Supplement Plan</Text>
+            <ScrollView>
+              {supplements.map((supplement) => (
+                <View key={supplement.id} style={styles.supplementItem}>
+                  <Text style={styles.supplementName}>{supplement.name}</Text>
+                  <Text style={styles.supplementDosage}>Dosage: {supplement.dosage}</Text>
+                  <Text style={styles.supplementBenefit}>Benefit: {supplement.benefit}</Text>
+                </View>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setSupplementsModalVisible(false)}>
+              <Text style={styles.modalButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
       <Modal
         animationType="slide"
         transparent={true}
@@ -1026,32 +1003,6 @@ const WorkoutApp = () => {
           </View>
         </View>
       </Modal>
-
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={supplementsModalVisible}
-        onRequestClose={() => setSupplementsModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalHeader}>Supplement Plan</Text>
-            <ScrollView>
-              {supplements.map((supplement) => (
-                <View key={supplement.id} style={styles.supplementItem}>
-                  <Text style={styles.supplementName}>{supplement.name}</Text>
-                  <Text style={styles.supplementDosage}>Dosage: {supplement.dosage}</Text>
-                  <Text style={styles.supplementBenefit}>Benefit: {supplement.benefit}</Text>
-                </View>
-              ))}
-            </ScrollView>
-            <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setSupplementsModalVisible(false)}>
-              <Text style={styles.modalButtonText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
       <Modal
         animationType="slide"
         transparent={true}
@@ -1086,7 +1037,6 @@ const WorkoutApp = () => {
           </View>
         </View>
       </Modal>
-
       <Modal
         animationType="slide"
         transparent={true}
@@ -1120,40 +1070,260 @@ const WorkoutApp = () => {
           </View>
         </View>
       </Modal>
-
       <Modal
-        animationType="slide"
-        transparent={true}
-        visible={feedbackModalVisible}
-        onRequestClose={() => setFeedbackModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalHeader}>Workout Feedback</Text>
-            <Text style={styles.modalText}>How was your workout?</Text>
-            <TouchableOpacity style={styles.feedbackOption} onPress={() => handleWorkoutCompletion('easy')}>
-              <Text style={styles.feedbackOptionText}>Easy</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.feedbackOption} onPress={() => handleWorkoutCompletion('just right')}>
-              <Text style={styles.feedbackOptionText}>Just Right</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.feedbackOption} onPress={() => handleWorkoutCompletion('hard')}>
-              <Text style={styles.feedbackOptionText}>Hard</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelButton} onPress={() => setFeedbackModalVisible(false)}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+  animationType="slide"
+  transparent={true}
+  visible={feedbackModalVisible}
+  onRequestClose={() => setFeedbackModalVisible(false)}
+>
+  <View style={styles.modalContainer}>
+    <View style={styles.modalContent}>
+      <Text style={styles.modalHeader}>Workout Feedback</Text>
+      <Text style={styles.modalText}>How was your workout?</Text>
+      <TouchableOpacity style={styles.feedbackOption} onPress={() => handleWorkoutCompletion('easy')}>
+        <Text style={styles.feedbackOptionText}>Easy</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.feedbackOption} onPress={() => handleWorkoutCompletion('just right')}>
+        <Text style={styles.feedbackOptionText}>Just Right</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.feedbackOption} onPress={() => handleWorkoutCompletion('hard')}>
+        <Text style={styles.feedbackOptionText}>Hard</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setFeedbackModalVisible(false)}>
+        <Text style={styles.modalButtonText}>Cancel</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
+    </SafeAreaView>
+  );
+};
 
-      <AlertModal
-        visible={alertModalVisible}
-        title={alertTitle}
-        message={alertMessage}
-        onClose={() => setAlertModalVisible(false)}
-      />
-    </LinearGradient>
+const DashboardTab = ({ userProfile, workoutPlan, points, motivationalQuote, refreshQuote, onStartWorkout }: { 
+  userProfile: UserProfile, 
+  workoutPlan: WorkoutPlanResponse | null, 
+  points: number,
+  motivationalQuote: string,
+  refreshQuote: () => void,
+  onStartWorkout: () => void
+}) => {
+  return (
+    <ScrollView style={styles.tabContent}>
+      <Text style={styles.tabTitle}>Dashboard</Text>
+      <View style={styles.userInfo}>
+        <Text style={styles.userName}>Welcome, {userProfile.name}!</Text>
+        <Text style={styles.userPoints}>Points: {points}</Text>
+      </View>
+      {workoutPlan && (
+        <View style={styles.nextWorkout}>
+          <Text style={styles.nextWorkoutTitle}>Next Workout:</Text>
+          <Text style={styles.nextWorkoutInfo}>{workoutPlan.workoutPlan.weeklyPlan[0].day}</Text>
+          <TouchableOpacity style={styles.startWorkoutButton} onPress={onStartWorkout}>
+            <Text style={styles.startWorkoutButtonText}>Start Workout</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      <View style={styles.quickStats}>
+        <Text style={styles.quickStatsTitle}>Quick Stats</Text>
+        <Text style={styles.quickStatsItem}>Weight: {userProfile.weight} lbs</Text>
+        <Text style={styles.quickStatsItem}>Goal: {userProfile.goal}</Text>
+        <Text style={styles.quickStatsItem}>Fitness Level: {userProfile.fitnessLevel}</Text>
+      </View>
+      <View style={styles.motivationalQuote}>
+        <Text style={styles.motivationalQuoteText}>{motivationalQuote}</Text>
+        <TouchableOpacity style={styles.refreshQuoteButton} onPress={refreshQuote}>
+          <Ionicons name="refresh-outline" size={24} color="#f1c40f" />
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+};
+
+const WorkoutTab = ({ workoutPlan, onGenerateWorkout, onCompleteWorkout, customExercises, onCreateCustomExercise }: {
+  workoutPlan: WorkoutPlanResponse | null,
+  onGenerateWorkout: () => void,
+  onCompleteWorkout: (difficulty: 'easy' | 'just right' | 'hard') => void,
+  customExercises: CustomExercise[],
+  onCreateCustomExercise: () => void
+}) => {
+  return (
+    <ScrollView style={styles.tabContent}>
+      <Text style={styles.tabTitle}>Workout</Text>
+      {workoutPlan ? (
+        <View>
+          <Text style={styles.sectionTitle}>{workoutPlan.workoutPlan.weeklyPlan[0].day}</Text>
+          {workoutPlan.workoutPlan.weeklyPlan[0].exercises.map((exercise, index) => (
+            <View key={index} style={styles.exerciseItem}>
+              <Text style={styles.exerciseName}>{exercise.name}</Text>
+              <Text style={styles.exerciseDetail}>Sets: {exercise.sets}</Text>
+              <Text style={styles.exerciseDetail}>Reps: {exercise.reps}</Text>
+              <Text style={styles.exerciseDetail}>Rest: {exercise.rest}</Text>
+              {exercise.text && <Text style={styles.exerciseDetail}>{exercise.text}</Text>}
+            </View>
+          ))}
+          <TouchableOpacity style={styles.completeWorkoutButton} onPress={() => onCompleteWorkout('just right')}>
+            <Text style={styles.completeWorkoutButtonText}>Complete Workout</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <TouchableOpacity style={styles.generateWorkoutButton} onPress={onGenerateWorkout}>
+          <Text style={styles.generateWorkoutButtonText}>Generate Workout Plan</Text>
+        </TouchableOpacity>
+      )}
+      <View style={styles.customExercisesSection}>
+        <Text style={styles.sectionTitle}>Custom Exercises</Text>
+        {customExercises.map((exercise, index) => (
+          <View key={index} style={styles.customExerciseItem}>
+            <Text style={styles.customExerciseName}>{exercise.name}</Text>
+            <Text style={styles.customExerciseDescription}>{exercise.description}</Text>
+          </View>
+        ))}
+        <TouchableOpacity style={styles.createCustomExerciseButton} onPress={onCreateCustomExercise}>
+          <Text style={styles.createCustomExerciseButtonText}>Create Custom Exercise</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+};
+
+const NutritionTab = ({ mealPlan, supplements, onUpdateMealPlan, onViewSupplements }: {
+  mealPlan: MealPlan | null,
+  supplements: Supplement[],
+  onUpdateMealPlan: () => void,
+  onViewSupplements: () => void
+}) => {
+  return (
+    <ScrollView style={styles.tabContent}>
+      <Text style={styles.tabTitle}>Nutrition</Text>
+      {mealPlan ? (
+        <View style={styles.mealPlanContainer}>
+          <Text style={styles.sectionTitle}>Today's Meal Plan</Text>
+          <Text style={styles.mealTitle}>Breakfast:</Text>
+          <Text style={styles.mealContent}>{mealPlan.breakfast}</Text>
+          <Text style={styles.mealTitle}>Lunch:</Text>
+          <Text style={styles.mealContent}>{mealPlan.lunch}</Text>
+          <Text style={styles.mealTitle}>Dinner:</Text>
+          <Text style={styles.mealContent}>{mealPlan.dinner}</Text>
+          <Text style={styles.mealTitle}>Snacks:</Text>
+          {mealPlan.snacks.map((snack, index) => (
+            <Text key={index} style={styles.mealContent}>{snack}</Text>
+          ))}
+          <TouchableOpacity style={styles.updateMealPlanButton} onPress={onUpdateMealPlan}>
+            <Text style={styles.updateMealPlanButtonText}>Update Meal Plan</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <TouchableOpacity style={styles.generateMealPlanButton} onPress={onUpdateMealPlan}>
+          <Text style={styles.generateMealPlanButtonText}>Generate Meal Plan</Text>
+        </TouchableOpacity>
+      )}
+      <TouchableOpacity style={styles.viewSupplementsButton} onPress={onViewSupplements}>
+        <Text style={styles.viewSupplementsButtonText}>View Supplements</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+};
+
+const ProgressTab = ({ bmiHistory, progressReport, onCalculateBMI, onGenerateReport, fitnessForecast, onGenerateForecast }: {
+  bmiHistory: {date: string, bmi: number}[],
+  progressReport: string,
+  onCalculateBMI: () => void,
+  onGenerateReport: () => void,
+  fitnessForecast: FitnessForecast[],
+  onGenerateForecast: () => void
+}) => {
+  return (
+    <ScrollView style={styles.tabContent}>
+      <Text style={styles.tabTitle}>Progress</Text>
+      <TouchableOpacity style={styles.calculateBMIButton} onPress={onCalculateBMI}>
+        <Text style={styles.calculateBMIButtonText}>Calculate BMI</Text>
+      </TouchableOpacity>
+      {bmiHistory.length > 0 && (
+        <View style={styles.bmiChartContainer}>
+          <Text style={styles.sectionTitle}>BMI History</Text>
+          <LineChart
+            data={{
+              labels: bmiHistory.map(entry => new Date(entry.date).toLocaleDateString()),
+              datasets: [{ data: bmiHistory.map(entry => entry.bmi) }]
+            }}
+            width={Dimensions.get('window').width - 40}
+            height={220}
+            chartConfig={{
+              backgroundColor: '#e26a00',
+              backgroundGradientFrom: '#fb8c00',
+              backgroundGradientTo: '#ffa726',
+              decimalPlaces: 2,
+              color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+              style: {
+                borderRadius: 16
+              }
+            }}
+            bezier
+            style={{
+              marginVertical: 8,
+              borderRadius: 16
+            }}
+          />
+        </View>
+      )}
+      <TouchableOpacity style={styles.generateReportButton} onPress={onGenerateReport}>
+        <Text style={styles.generateReportButtonText}>Generate Progress Report</Text>
+      </TouchableOpacity>
+      {progressReport && (
+        <View style={styles.progressReportContainer}>
+          <Text style={styles.sectionTitle}>Progress Report</Text>
+          <Text style={styles.progressReportContent}>{progressReport}</Text>
+        </View>
+      )}
+      <TouchableOpacity style={styles.generateForecastButton} onPress={onGenerateForecast}>
+        <Text style={styles.generateForecastButtonText}>Generate Fitness Forecast</Text>
+      </TouchableOpacity>
+      {fitnessForecast.length > 0 && (
+        <View style={styles.fitnessForecastContainer}>
+          <Text style={styles.sectionTitle}>Fitness Forecast</Text>
+          {fitnessForecast.map((forecast, index) => (
+            <View key={index} style={styles.forecastItem}>
+              <Text style={styles.forecastDate}>{new Date(forecast.date).toLocaleDateString()}</Text>
+              <Text style={styles.forecastMetric}>Weight: {forecast.predictedMetrics.weight.toFixed(1)} kg</Text>
+              <Text style={styles.forecastMetric}>Body Fat: {forecast.predictedMetrics.bodyFat.toFixed(1)}%</Text>
+              <Text style={styles.forecastMetric}>Muscle Gain: {forecast.predictedMetrics.muscleGain.toFixed(1)} kg</Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </ScrollView>
+  );
+};
+
+const ChallengesTab = ({ challenges, onCompleteChallenge, onRefreshChallenges }: {
+  challenges: Challenge[],
+  onCompleteChallenge: (challengeId: number) => void,
+  onRefreshChallenges: () => void
+}) => {
+  return (
+    <ScrollView style={styles.tabContent}>
+      <Text style={styles.tabTitle}>Challenges</Text>
+      {challenges.map((challenge) => (
+        <View key={challenge.id} style={styles.challengeItem}>
+          <Text style={styles.challengeName}>{challenge.name}</Text>
+          <Text style={styles.challengeDescription}>{challenge.description}</Text>
+          <Text style={styles.challengeDuration}>Duration: {challenge.duration}</Text>
+          <Text style={styles.challengeDifficulty}>Difficulty: {challenge.difficulty}</Text>
+          <TouchableOpacity
+            style={[styles.challengeButton, challenge.completed && styles.challengeCompleted]}
+            onPress={() => onCompleteChallenge(challenge.id)}
+            disabled={challenge.completed}
+          >
+            <Text style={styles.challengeButtonText}>
+              {challenge.completed ? 'Completed' : 'Complete'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ))}
+      <TouchableOpacity style={styles.refreshChallengesButton} onPress={onRefreshChallenges}>
+        <Text style={styles.refreshChallengesButtonText}>Refresh Challenges</Text>
+      </TouchableOpacity>
+    </ScrollView>
   );
 };
 
@@ -1161,344 +1331,461 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scrollContent: {
+  gradient: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  sideMenu: {
+    width: 200,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     padding: 20,
   },
-  header: {
+  sideMenuClosed: {
+    width: 0,
+    padding: 0,
+  },
+  menuItem: {
+    flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 20,
   },
-  headerText: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  menuItemText: {
+    marginLeft: 10,
     color: '#f1c40f',
-    marginTop: 10,
+    fontSize: 16,
   },
-  subHeaderText: {
-    fontSize: 18,
-    color: '#f1c40f',
-    marginBottom: 20,
+  mainContent: {
+    flex: 1,
   },
-  profileImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 2,
-    borderColor: '#f1c40f',
-  },
-  statsContainer: {
+  tabBar: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginBottom: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    paddingVertical: 10,
   },
-  statItem: {
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#f1c40f',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#fff',
-  },
-  button: {
-    backgroundColor: '#f1c40f',
-    padding: 12,
-    borderRadius: 20,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  buttonText: {
-    color: '#121212',
-    fontWeight: 'bold',
-    fontSize: 16,
-    marginLeft: 8,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    marginBottom: 20,
-  },
-  actionButton: {
-    backgroundColor: 'rgba(241, 196, 15, 0.1)',
-    padding: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    width: (width - 60) / 2,
-    marginBottom: 10,
-  },
-  actionButtonText: {
-    color: '#f1c40f',
-    marginTop: 5,
-    fontSize: 12,
-  },
-  workoutPlanContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 15,
-    padding: 15,
-    marginBottom: 20,
-  },
-  planTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#f1c40f',
-    marginBottom: 10,
-  },
-  dayPlan: {
-    marginBottom: 15,
-  },
-  dayHeader: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#f1c40f',
-    marginBottom: 8,
-  },
-  exercise: {
-    marginBottom: 8,
-  },
-  exerciseName: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  exerciseDetail: {
-    color: '#ccc',
-    fontSize: 14,
-  },
-  nutritionAdvice: {
-    marginTop: 15,
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#f1c40f',
-  },
-  chartContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 15,
-    padding: 15,
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-  chartTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#f1c40f',
-    marginBottom: 10,
-  },
-  chart: {
-    marginVertical: 8,
-    borderRadius: 16,
-  },
-  bmiCategory: {
-    color: '#fff',
-    marginTop: 10,
-    fontSize: 14,
-  },
-  motivationSection: {
-    marginTop: 20,
-  },
-  sectionHeader: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#f1c40f',
-    marginBottom: 10,
-  },
-  quoteContainer: {
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  quote: {
-    fontSize: 16,
-    fontStyle: 'italic',
-    color: '#fff',
-    textAlign: 'center',
-  },
-  refreshButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(241, 196, 15, 0.1)',
+  tab: {
     padding: 10,
-    borderRadius: 10,
   },
-  refreshButtonText: {
-    color: '#f1c40f',
-    marginLeft: 5,
-  },
-  modalContainer: {
+  tabContent: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-  },
-  modalContent: {
-    width: '90%',
-    backgroundColor: '#24243e',
     padding: 20,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: '#f1c40f',
   },
-  modalHeader: {
+  tabTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#f1c40f',
-    textAlign: 'center',
     marginBottom: 20,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#f1c40f',
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  topBarTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#f1c40f',
+  },
+  userInfo: {
+    marginBottom: 20,
+  },
+  userName: {
+    fontSize: 18,
+    color: '#fff',
+  },
+  userPoints: {
+    fontSize: 16,
+    color: '#f1c40f',
+  },
+  nextWorkout: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 10,
-    padding: 12,
+    padding: 15,
+    marginBottom: 20,
+  },
+  nextWorkoutTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#f1c40f',
     marginBottom: 10,
-    backgroundColor: 'rgba(241, 196, 15, 0.1)',
+  },
+  nextWorkoutInfo: {
     color: '#fff',
   },
-  feedbackButton: {
+  startWorkoutButton: {
     backgroundColor: '#f1c40f',
-    padding: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 15,
-  },
-  feedbackButtonText: {
-    color: '#121212',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  feedbackOption: {
-    backgroundColor: 'rgba(241, 196, 15, 0.1)',
-    padding: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginVertical: 5,
-  },
-  feedbackOptionText: {
-    color: '#f1c40f',
-    fontSize: 16,
-  },
-  cancelButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#f1c40f',
-    marginTop: 10,
-  },
-  cancelButtonText: {
-    color: '#f1c40f',
-  },
-  loading: {
-    marginVertical: 20,
-  },
-  error: {
-    color: '#e74c3c',
-    textAlign: 'center',
-    marginBottom: 15,
-    fontSize: 14,
-  },
-  imagePicker: {
-    backgroundColor: 'rgba(241, 196, 15, 0.1)',
-    borderWidth: 1,
-    borderColor: '#f1c40f',
-    borderRadius: 15,
-    padding: 15,
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  imagePickerText: {
-    color: '#f1c40f',
-  },
-  modalButton: {
-    backgroundColor: '#f1c40f',
-    padding: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 15,
-  },
-  modalButtonText: {
-    color: '#121212',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  challengeItem: {
-    backgroundColor: 'rgba(241, 196, 15, 0.1)',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 15,
-  },
-  challengeName: {
-    color: '#f1c40f',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  challengeDescription: {
-    color: '#fff',
-    marginTop: 5,
-    fontSize: 14,
-  },
-  challengeDuration: {
-    color: '#fff',
-    marginTop: 5,
-    fontSize: 14,
-  },
-  challengeDifficulty: {
-    color: '#fff',
-    marginTop: 5,
-    fontSize: 14,
-  },
-  challengeButton: {
-    backgroundColor: '#f1c40f',
-    padding: 8,
+    padding: 10,
     borderRadius: 5,
     alignItems: 'center',
     marginTop: 10,
+  },
+  startWorkoutButtonText: {
+    color: '#000',
+    fontWeight: 'bold',
+  },
+  quickStats: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 20,
+  },
+  quickStatsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#f1c40f',
+    marginBottom: 10,
+  },
+  quickStatsItem: {
+    color: '#fff',
+    marginBottom: 5,
+  },
+  motivationalQuote: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 20,
+  },
+  motivationalQuoteText: {
+    color: '#fff',
+    fontStyle: 'italic',
+    textAlign: 'center',
+  },
+  refreshQuoteButton: {
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#f1c40f',
+    marginBottom: 15,
+  },
+  exerciseItem: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 15,
+  },
+  exerciseName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 5,
+  },
+  exerciseDetail: {
+    color: '#ccc',
+  },
+  completeWorkoutButton: {
+    backgroundColor: '#2ecc71',
+    padding: 15,
+    borderRadius: 5,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  completeWorkoutButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  generateWorkoutButton: {
+    backgroundColor: '#3498db',
+    padding: 15,
+    borderRadius: 5,
+    alignItems: 'center',
+  },
+  generateWorkoutButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  customExercisesSection: {
+    marginTop: 30,
+  },
+  customExerciseItem: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 15,
+  },
+  customExerciseName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 5,
+  },
+  customExerciseDescription: {
+    color: '#ccc',
+  },
+  createCustomExerciseButton: {
+    backgroundColor: '#e74c3c',
+    padding: 15,
+    borderRadius: 5,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  createCustomExerciseButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  mealPlanContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 20,
+  },
+  mealTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#f1c40f',
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  mealContent: {
+    color: '#fff',
+    marginBottom: 10,
+  },
+  updateMealPlanButton: {
+    backgroundColor: '#3498db',
+    padding: 15,
+    borderRadius: 5,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  updateMealPlanButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  generateMealPlanButton: {
+    backgroundColor: '#2ecc71',
+    padding: 15,
+    borderRadius: 5,
+    alignItems: 'center',
+  },
+  generateMealPlanButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  viewSupplementsButton: {
+    backgroundColor: '#e67e22',
+    padding: 15,
+    borderRadius: 5,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  viewSupplementsButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  calculateBMIButton: {
+    backgroundColor: '#9b59b6',
+    padding: 15,
+    borderRadius: 5,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  calculateBMIButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  bmiChartContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 20,
+  },
+  generateReportButton: {
+    backgroundColor: '#1abc9c',
+    padding: 15,
+    borderRadius: 5,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  generateReportButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  progressReportContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 20,
+  },
+  progressReportContent: {
+    color: '#fff',
+  },
+  generateForecastButton: {
+    backgroundColor: '#34495e',
+    padding: 15,
+    borderRadius: 5,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  generateForecastButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  fitnessForecastContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 20,
+  },
+  forecastItem: {
+    marginBottom: 15,
+  },
+  forecastDate: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#f1c40f',
+    marginBottom: 5,
+  },
+  forecastMetric: {
+    color: '#fff',
+  },
+  challengeItem: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 15,
+  },
+  challengeName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#f1c40f',
+    marginBottom: 5,
+  },
+  challengeDescription: {
+    color: '#fff',
+    marginBottom: 10,
+  },
+  challengeDuration: {
+    color: '#ccc',
+  },
+  challengeDifficulty: {
+    color: '#ccc',
+    marginBottom: 10,
+  },
+  challengeButton: {
+    backgroundColor: '#3498db',
+    padding: 10,
+    borderRadius: 5,
+    alignItems: 'center',
   },
   challengeCompleted: {
     backgroundColor: '#2ecc71',
   },
   challengeButtonText: {
-    color: '#121212',
-    fontWeight: 'bold',
-  },
-  mealHeader: {
-    color: '#f1c40f',
-    fontWeight: 'bold',
-    fontSize: 16,
-    marginTop: 15,
-  },
-  mealContent: {
     color: '#fff',
-    marginBottom: 10,
-    fontSize: 14,
+    fontWeight: 'bold',
   },
-  supplementItem: {
-    backgroundColor: 'rgba(241, 196, 15, 0.1)',
+  refreshChallengesButton: {
+    backgroundColor: '#e74c3c',
     padding: 15,
-    borderRadius: 10,
-    marginBottom: 15,
+    borderRadius: 5,
+    alignItems: 'center',
+    marginTop: 20,
   },
-  supplementName: {
-    color: '#f1c40f',
+  refreshChallengesButtonText: {
+    color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
   },
-  supplementDosage: {
-    color: '#fff',
-    marginTop: 5,
-    fontSize: 14,
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  supplementBenefit: {
+  modalContent: {
+    backgroundColor: '#34495e',
+    borderRadius: 10,
+    padding: 20,
+    width: '80%',
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#f1c40f',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  input: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 5,
+    padding: 10,
+    marginBottom: 10,
     color: '#fff',
-    marginTop: 5,
-    fontSize: 14,
+  },
+  modalButton: {
+    backgroundColor: '#3498db',
+    padding: 15,
+    borderRadius: 5,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  modalButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  cancelButton: {
+    backgroundColor: '#e74c3c',
+    marginTop: 10,
+  },
+  imagePicker: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 10,
+    padding: 20,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  profileImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  imagePickerText: {
+    color: '#fff',
+    fontSize: 16,
+  },
+  inputScrollView: {
+    maxHeight: 300,
   },
   textArea: {
     height: 100,
     textAlignVertical: 'top',
+  },
+  supplementItem: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 15,
+  },
+  supplementName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#f1c40f',
+    marginBottom: 5,
+  },
+  supplementDosage: {
+    color: '#fff',
+    marginBottom: 5,
+  },
+  supplementBenefit: {
+    color: '#ccc',
   },
   alertModalContainer: {
     flex: 1,
@@ -1507,78 +1794,53 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   alertModalContent: {
-    backgroundColor: '#24243e',
+    backgroundColor: '#34495e',
     borderRadius: 10,
     padding: 20,
     alignItems: 'center',
-    elevation: 5,
   },
   alertModalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#f1c40f',
     marginBottom: 10,
   },
   alertModalMessage: {
-    fontSize: 16,
     color: '#fff',
     textAlign: 'center',
     marginBottom: 20,
   },
   alertModalButton: {
-    backgroundColor: '#f1c40f',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    backgroundColor: '#3498db',
+    padding: 10,
     borderRadius: 5,
   },
   alertModalButtonText: {
-    color: '#121212',
+    color: '#fff',
     fontWeight: 'bold',
-    fontSize: 16,
   },
   modalText: {
     color: '#fff',
     fontSize: 16,
     marginBottom: 15,
   },
-  inputScrollView: {
-    maxHeight: 300,
-  },
-  aiFeatures: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-around',
-    marginVertical: 20,
-  },
-  aiFeatureButton: {
-    backgroundColor: 'rgba(241, 196, 15, 0.1)',
-    padding: 15,
-    borderRadius: 15,
-    alignItems: 'center',
-    width: '45%',
-    marginBottom: 15,
-  },
-  aiFeatureButtonText: {
-    color: '#f1c40f',
-    marginTop: 5,
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  sectionContainer: {
+  feedbackOption: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 15,
     padding: 15,
-    marginBottom: 20,
-  },
-  forecastItem: {
+    borderRadius: 5,
+    alignItems: 'center',
     marginBottom: 10,
   },
-  insightItem: {
-    marginBottom: 10,
+  feedbackOptionText: {
+    color: '#fff',
+    fontSize: 16,
   },
-  insightTitle: {
+  mealHeader: {
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#f1c40f',
+    marginTop: 10,
+    marginBottom: 5,
   },
 });
 
