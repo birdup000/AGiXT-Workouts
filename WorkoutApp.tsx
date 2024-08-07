@@ -13,7 +13,8 @@ import {
   Platform,
   Alert,
   SafeAreaView,
-  Animated
+  Animated,
+  FlatList,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -39,7 +40,8 @@ import AGiXTService, {
   AdaptiveWorkoutPlan,
   AnomalyDetectionResult,
   PersonalizedRecommendation,
-  FitnessForecast
+  FitnessForecast,
+  WorkoutPreferences
 } from './AGiXTService';
 
 const { width, height } = Dimensions.get('window');
@@ -83,6 +85,152 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onComplete }) => {
       <Animated.Text style={[styles.fadeText, { opacity: fadeAnim }]}>
         Your journey to fitness begins here
       </Animated.Text>
+    </View>
+  );
+};
+
+const sampleWorkouts = [
+  { name: "Full Body Strength", equipment: ["Dumbbells", "Barbell", "Bench"] },
+  { name: "Bodyweight HIIT", equipment: ["Bodyweight Only"] },
+  { name: "Resistance Band Total Body", equipment: ["Resistance Bands"] },
+  { name: "Kettlebell Circuit", equipment: ["Kettlebells"] },
+  { name: "Dumbbell Upper Body", equipment: ["Dumbbells"] },
+  { name: "Outdoor Running Intervals", equipment: ["Bodyweight Only"] },
+  { name: "Pull-up Bar Workout", equipment: ["Pull-up Bar"] },
+  { name: "Gym Machine Circuit", equipment: ["Gym Machines"] },
+];
+
+const WorkoutSelectionScreen: React.FC<{ onComplete: (preferences: WorkoutPreferences) => void }> = ({ onComplete }) => {
+  const [preferences, setPreferences] = useState<WorkoutPreferences>({
+    location: '',
+    space: '',
+    equipment: [],
+  });
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [fadeAnim] = useState(new Animated.Value(1));
+  const [filteredWorkouts, setFilteredWorkouts] = useState(sampleWorkouts);
+
+  const questions = [
+    {
+      text: "Where will you be working out?",
+      options: ["Home", "Gym", "Outdoors"],
+      key: "location",
+    },
+    {
+      text: "How much space do you have?",
+      options: ["Small", "Medium", "Large"],
+      key: "space",
+    },
+    {
+      text: "What equipment do you have access to?",
+      options: ["Dumbbells", "Barbell", "Resistance Bands", "Bodyweight Only", "Kettlebells", "Pull-up Bar", "Bench"],
+      key: "equipment",
+      multiple: true,
+    },
+  ];
+
+  const handleSelection = (option: string) => {
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setPreferences(prev => {
+        let newPreferences;
+        if (questions[currentQuestion].multiple) {
+          const equipmentList = prev.equipment.includes(option)
+            ? prev.equipment.filter(item => item !== option)
+            : [...prev.equipment, option];
+          newPreferences = { ...prev, equipment: equipmentList };
+        } else {
+          newPreferences = { ...prev, [questions[currentQuestion].key]: option };
+        }
+        
+        // Update filtered workouts
+        const updatedWorkouts = sampleWorkouts.filter(workout => {
+          if (newPreferences.location === 'Gym' && workout.name.includes('Outdoor')) return false;
+          if (newPreferences.location === 'Outdoors' && !workout.name.includes('Outdoor')) return false;
+          return workout.equipment.some(eq => newPreferences.equipment.includes(eq));
+        });
+        setFilteredWorkouts(updatedWorkouts);
+        
+        return newPreferences;
+      });
+
+      if (!questions[currentQuestion].multiple) {
+        if (currentQuestion < questions.length - 1) {
+          setCurrentQuestion(prev => prev + 1);
+        }
+      }
+
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    });
+  };
+
+  const renderWorkoutItem = (workout: typeof sampleWorkouts[0]) => {
+    const isCompatible = workout.equipment.some(eq => preferences.equipment.includes(eq));
+    const isOutdoor = workout.name.includes('Outdoor');
+    const isLocationCompatible = 
+      (preferences.location === 'Outdoors' && isOutdoor) ||
+      (preferences.location !== 'Outdoors' && !isOutdoor);
+
+    return (
+      <View key={workout.name} style={[
+        styles.workoutItem,
+        !isCompatible && styles.incompatibleWorkout,
+        !isLocationCompatible && styles.incompatibleWorkout
+      ]}>
+        <Text style={styles.workoutName}>{workout.name}</Text>
+        {(!isCompatible || !isLocationCompatible) && (
+          <Ionicons name="warning-outline" size={24} color="#FFA500" />
+        )}
+      </View>
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      <Animated.View style={[styles.questionContainer, { opacity: fadeAnim }]}>
+        <Text style={styles.questionText}>{questions[currentQuestion].text}</Text>
+        {questions[currentQuestion].options.map((option, index) => (
+          <TouchableOpacity
+            key={index}
+            style={[
+              styles.optionButton,
+              questions[currentQuestion].multiple &&
+                preferences.equipment.includes(option) &&
+                styles.selectedOption,
+            ]}
+            onPress={() => handleSelection(option)}
+          >
+            <Text style={styles.optionText}>{option}</Text>
+            {questions[currentQuestion].multiple && (
+              <Ionicons
+                name={
+                  preferences.equipment.includes(option)
+                    ? "checkbox"
+                    : "square-outline"
+                }
+                size={24}
+                color="#FFD700"
+              />
+            )}
+          </TouchableOpacity>
+        ))}
+        <Text style={styles.workoutListHeader}>Available Workouts:</Text>
+        <ScrollView style={styles.workoutList}>
+          {filteredWorkouts.map(renderWorkoutItem)}
+        </ScrollView>
+        {currentQuestion === questions.length - 1 && (
+          <TouchableOpacity style={styles.nextButton} onPress={() => onComplete(preferences)}>
+            <Text style={styles.nextButtonText}>Generate Workouts</Text>
+          </TouchableOpacity>
+        )}
+      </Animated.View>
     </View>
   );
 };
@@ -145,6 +293,201 @@ const AlertModal: React.FC<AlertModalProps> = React.memo(({ visible, title, mess
   </Modal>
 ));
 
+interface DashboardTabProps {
+  userProfile: UserProfile;
+  workoutPlan: WorkoutPlanResponse | null;
+  points: number;
+  motivationalQuote: string;
+  refreshQuote: () => Promise<void>;
+}
+
+const DashboardTab: React.FC<DashboardTabProps> = ({ userProfile, workoutPlan, points, motivationalQuote, refreshQuote }) => {
+  return (
+    <ScrollView style={styles.tabContent}>
+      <View style={styles.welcomeSection}>
+        <Text style={styles.welcomeText}>Welcome back, {userProfile.name}!</Text>
+        <Text style={styles.pointsText}>{points} Fitness Points</Text>
+      </View>
+      {workoutPlan && (
+        <View style={styles.workoutCard}>
+          <Text style={styles.cardTitle}>Today's Workout</Text>
+          <Text style={styles.workoutInfo}>{workoutPlan.workoutPlan.weeklyPlan[0].day}</Text>
+          <TouchableOpacity style={styles.startButton}>
+            <Text style={styles.startButtonText}>Start Workout</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      <View style={styles.quoteCard}>
+        <Text style={styles.quoteText}>{motivationalQuote}</Text>
+        <TouchableOpacity style={styles.refreshButton} onPress={refreshQuote}>
+          <Ionicons name="refresh-outline" size={24} color="#FFD700" />
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+};
+
+interface WorkoutTabProps {
+  workoutPlan: WorkoutPlanResponse[];
+  onGenerateWorkout: () => void;
+  onCompleteWorkout: (difficulty: 'easy' | 'just right' | 'hard') => Promise<void>;
+}
+
+const WorkoutTab: React.FC<WorkoutTabProps> = ({ workoutPlan, onGenerateWorkout, onCompleteWorkout }) => {
+  const renderWorkoutItem = ({ item }: { item: WorkoutPlanResponse }) => (
+    <View style={styles.workoutCard}>
+      <Text style={styles.cardTitle}>{item.workoutPlan.weeklyPlan[0].day}</Text>
+      {item.workoutPlan.weeklyPlan[0].exercises.map((exercise, index) => (
+        <View key={index} style={styles.exerciseItem}>
+          <Text style={styles.exerciseName}>{exercise.name}</Text>
+          <Text style={styles.exerciseDetail}>Sets: {exercise.sets}</Text>
+          <Text style={styles.exerciseDetail}>Reps: {exercise.reps}</Text>
+          <Text style={styles.exerciseDetail}>Rest: {exercise.rest}</Text>
+          {exercise.text && <Text style={styles.exerciseDetail}>{exercise.text}</Text>}
+        </View>
+      ))}
+      <TouchableOpacity style={styles.completeWorkoutButton} onPress={() => onCompleteWorkout('just right')}>
+        <Text style={styles.completeWorkoutButtonText}>Complete Workout</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  return (
+    <FlatList
+      data={workoutPlan}
+      renderItem={renderWorkoutItem}
+      keyExtractor={(item, index) => `${item.conversationName}-${index}`}
+      ListHeaderComponent={<Text style={styles.tabTitle}>Workouts</Text>}
+      ListEmptyComponent={
+        <TouchableOpacity style={styles.generateWorkoutButton} onPress={onGenerateWorkout}>
+          <Text style={styles.generateWorkoutButtonText}>Generate Workout Plans</Text>
+        </TouchableOpacity>
+      }
+    />
+  );
+};
+
+interface NutritionTabProps {
+  mealPlan: MealPlan | null;
+  onUpdateMealPlan: () => Promise<void>;
+}
+
+const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan }) => {
+  return (
+    <ScrollView style={styles.tabContent}>
+      <Text style={styles.tabTitle}>Nutrition</Text>
+      {mealPlan ? (
+        <View style={styles.mealPlanContainer}>
+          <Text style={styles.sectionTitle}>Today's Meal Plan</Text>
+          <Text style={styles.mealTitle}>Breakfast:</Text>
+          <Text style={styles.mealContent}>{mealPlan.breakfast}</Text>
+          <Text style={styles.mealTitle}>Lunch:</Text>
+          <Text style={styles.mealContent}>{mealPlan.lunch}</Text>
+          <Text style={styles.mealTitle}>Dinner:</Text>
+          <Text style={styles.mealContent}>{mealPlan.dinner}</Text>
+          <Text style={styles.mealTitle}>Snacks:</Text>
+          {mealPlan.snacks.map((snack, index) => (
+            <Text key={index} style={styles.mealContent}>{snack}</Text>
+          ))}
+          <TouchableOpacity style={styles.updateMealPlanButton} onPress={onUpdateMealPlan}>
+          <Text style={styles.updateMealPlanButtonText}>Update Meal Plan</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <TouchableOpacity style={styles.generateMealPlanButton} onPress={onUpdateMealPlan}>
+          <Text style={styles.generateMealPlanButtonText}>Generate Meal Plan</Text>
+        </TouchableOpacity>
+      )}
+    </ScrollView>
+  );
+};
+
+interface ProgressTabProps {
+  bmiHistory: {date: string, bmi: number}[];
+  progressReport: string;
+  onCalculateBMI: () => void;
+  onGenerateReport: () => Promise<void>;
+}
+
+const ProgressTab: React.FC<ProgressTabProps> = ({ bmiHistory, progressReport, onCalculateBMI, onGenerateReport }) => {
+  return (
+    <ScrollView style={styles.tabContent}>
+      <Text style={styles.tabTitle}>Progress</Text>
+      <TouchableOpacity style={styles.calculateBMIButton} onPress={onCalculateBMI}>
+        <Text style={styles.calculateBMIButtonText}>Calculate BMI</Text>
+      </TouchableOpacity>
+      {bmiHistory.length > 0 && (
+        <View style={styles.bmiChartContainer}>
+          <Text style={styles.sectionTitle}>BMI History</Text>
+          <LineChart
+            data={{
+              labels: bmiHistory.map(entry => new Date(entry.date).toLocaleDateString()),
+              datasets: [{ data: bmiHistory.map(entry => entry.bmi) }]
+            }}
+            width={Dimensions.get('window').width - 40}
+            height={220}
+            chartConfig={{
+              backgroundColor: '#e26a00',
+              backgroundGradientFrom: '#fb8c00',
+              backgroundGradientTo: '#ffa726',
+              decimalPlaces: 2,
+              color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+              style: {
+                borderRadius: 16
+              }
+            }}
+            bezier
+            style={styles.chart}
+          />
+        </View>
+      )}
+      <TouchableOpacity style={styles.generateReportButton} onPress={onGenerateReport}>
+        <Text style={styles.generateReportButtonText}>Generate Progress Report</Text>
+      </TouchableOpacity>
+      {progressReport && (
+        <View style={styles.progressReportContainer}>
+          <Text style={styles.sectionTitle}>Progress Report</Text>
+          <Text style={styles.progressReportContent}>{progressReport}</Text>
+        </View>
+      )}
+    </ScrollView>
+  );
+};
+
+interface ChallengesTabProps {
+  challenges: Challenge[];
+  onCompleteChallenge: (challengeId: number) => Promise<void>;
+  onRefreshChallenges: () => Promise<void>;
+}
+
+const ChallengesTab: React.FC<ChallengesTabProps> = ({ challenges, onCompleteChallenge, onRefreshChallenges }) => {
+  return (
+    <ScrollView style={styles.tabContent}>
+      <Text style={styles.tabTitle}>Challenges</Text>
+      {challenges.map((challenge) => (
+        <View key={challenge.id} style={styles.challengeItem}>
+          <Text style={styles.challengeName}>{challenge.name}</Text>
+          <Text style={styles.challengeDescription}>{challenge.description}</Text>
+          <Text style={styles.challengeDuration}>Duration: {challenge.duration}</Text>
+          <Text style={styles.challengeDifficulty}>Difficulty: {challenge.difficulty}</Text>
+          <TouchableOpacity
+            style={[styles.challengeButton, challenge.completed && styles.challengeCompleted]}
+            onPress={() => onCompleteChallenge(challenge.id)}
+            disabled={challenge.completed}
+          >
+            <Text style={styles.challengeButtonText}>
+              {challenge.completed ? 'Completed' : 'Complete'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ))}
+      <TouchableOpacity style={styles.refreshChallengesButton} onPress={onRefreshChallenges}>
+        <Text style={styles.refreshChallengesButtonText}>Refresh Challenges</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+};
+
 const WorkoutApp: React.FC = () => {
   const [userProfile, setUserProfile] = useState<UserProfile>({
     name: '',
@@ -159,7 +502,7 @@ const WorkoutApp: React.FC = () => {
     bio: '',
     interests: ''
   });
-  const [workoutPlan, setWorkoutPlan] = useState<WorkoutPlanResponse | null>(null);
+  const [workoutPlan, setWorkoutPlan] = useState<WorkoutPlanResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
@@ -206,6 +549,8 @@ const WorkoutApp: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [workoutsCompleted, setWorkoutsCompleted] = useState(0);
   const [showWelcome, setShowWelcome] = useState(true);
+  const [showWorkoutSelection, setShowWorkoutSelection] = useState(false);
+  const [workoutPreferences, setWorkoutPreferences] = useState<WorkoutPreferences | null>(null);
 
   const showAlert = useCallback((title: string, message: string) => {
     setAlertTitle(title);
@@ -217,42 +562,38 @@ const WorkoutApp: React.FC = () => {
     const initializeApp = async () => {
       try {
         setLoading(true);
-        const storedApiKey = await AsyncStorage.getItem('apiKey');
-        const storedApiUri = await AsyncStorage.getItem('apiUri');
+        // Preconfigure AGiXT settings
+        const defaultApiKey = 'your_default_api_key';
+        const defaultApiUri = 'your_default_api_uri';
+        await AsyncStorage.setItem('apiKey', defaultApiKey);
+        await AsyncStorage.setItem('apiUri', defaultApiUri);
+        
+        const service = new AGiXTService();
+        service.updateSettings(defaultApiUri, defaultApiKey);
+        await service.initializeWorkoutAgent();
+        setAgixtService(service);
+
         const storedProfile = await AsyncStorage.getItem('userProfile');
         const storedWorkoutPath = await AsyncStorage.getItem('workoutPath');
         const storedWorkoutPlan = await AsyncStorage.getItem('currentWorkoutPlan');
         const storedPoints = await AsyncStorage.getItem('points');
         const storedWorkoutsCompleted = await AsyncStorage.getItem('workoutsCompleted');
         
-        if (storedApiKey && storedApiUri) {
-          setApiKey(storedApiKey);
-          setApiUri(storedApiUri);
-          const service = new AGiXTService();
-          service.updateSettings(storedApiUri, storedApiKey);
-          await service.initializeWorkoutAgent();
-          setAgixtService(service);
-          
-          if (storedProfile && storedWorkoutPath) {
-            setUserProfile(JSON.parse(storedProfile));
-            setWorkoutPath(storedWorkoutPath);
-            setIsFirstLaunch(false);
-            if (storedWorkoutPlan) {
-              setWorkoutPlan(JSON.parse(storedWorkoutPlan));
-            } else {
-              await generateWorkoutPlan();
-            }
-          } else {
-            setIsFirstLaunch(true);
+        if (storedProfile && storedWorkoutPath) {
+          setUserProfile(JSON.parse(storedProfile));
+          setWorkoutPath(storedWorkoutPath);
+          setIsFirstLaunch(false);
+          if (storedWorkoutPlan) {
+            setWorkoutPlan(JSON.parse(storedWorkoutPlan));
           }
-
-          if (storedPoints) setPoints(parseInt(storedPoints));
-          if (storedWorkoutsCompleted) setWorkoutsCompleted(parseInt(storedWorkoutsCompleted));
-          
-          await initializeFeatures();
         } else {
           setIsFirstLaunch(true);
         }
+
+        if (storedPoints) setPoints(parseInt(storedPoints));
+        if (storedWorkoutsCompleted) setWorkoutsCompleted(parseInt(storedWorkoutsCompleted));
+        
+        await initializeFeatures();
       } catch (error) {
         console.error('Error initializing app:', error);
         showAlert('Error', 'Failed to initialize the app. Please restart.');
@@ -263,6 +604,19 @@ const WorkoutApp: React.FC = () => {
   
     initializeApp();
   }, []);
+
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+  
+    if (!result.canceled) {
+      setProfileImage(result.assets[0].uri);
+    }
+  };
 
   const loadMealPlan = useCallback(async () => {
     if (!agixtService) return;
@@ -334,42 +688,6 @@ const WorkoutApp: React.FC = () => {
     setUserProfile(prevProfile => ({ ...prevProfile, [field]: value }));
   }, []);
 
-  const generateWorkoutPlan = useCallback(async () => {
-    if (!agixtService) {
-      showAlert('Error', 'AGiXT Service is not initialized yet.');
-      return;
-    }
-
-    if (workoutPlan && !workoutPlan.completed) {
-      showAlert('Workout in Progress', 'Please complete your current workout before generating a new one.');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await agixtService.createWorkoutPlan(userProfile, workoutPath);
-      if (response && response.workoutPlan) {
-        setWorkoutPlan(response);
-        await AsyncStorage.setItem('currentWorkoutPlan', JSON.stringify(response));
-        setPoints(prevPoints => {
-          const newPoints = prevPoints + 10;
-          AsyncStorage.setItem('points', newPoints.toString());
-          return newPoints;
-        });
-        checkAchievements();
-      } else {
-        setError('Invalid workout plan received');
-      }
-    } catch (err) {
-      setError('Failed to generate workout plan');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [agixtService, userProfile, workoutPath, workoutPlan, showAlert]);
-
   const checkAchievements = useCallback(() => {
     const newAchievements = [...achievements];
     if (!newAchievements[0].unlocked) {
@@ -387,18 +705,38 @@ const WorkoutApp: React.FC = () => {
     AsyncStorage.setItem('points', points.toString());
   }, [achievements, workoutsCompleted, showAlert, points]);
 
-  const pickImage = useCallback(async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      setProfileImage(result.assets[0].uri);
+  const generateWorkouts = useCallback(async (preferences: WorkoutPreferences) => {
+    if (!agixtService) {
+      showAlert('Error', 'AGiXT Service is not initialized yet.');
+      return;
     }
-  }, []);
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const initialWorkouts = await agixtService.generateMultipleWorkouts(preferences, 3);
+      setWorkoutPlan(initialWorkouts);
+      await AsyncStorage.setItem('currentWorkoutPlan', JSON.stringify(initialWorkouts));
+      setPoints(prevPoints => {
+        const newPoints = prevPoints + 10;
+        AsyncStorage.setItem('points', newPoints.toString());
+        return newPoints;
+      });
+      checkAchievements();
+    } catch (err) {
+      setError('Failed to generate workout plans');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [agixtService, checkAchievements, showAlert]);
+
+  const handleWorkoutPreferencesComplete = async (preferences: WorkoutPreferences) => {
+    setWorkoutPreferences(preferences);
+    setShowWorkoutSelection(false);
+    await generateWorkouts(preferences);
+  };
 
   const calculateBMI = useCallback(() => {
     if (!currentWeight || !userProfile.feet || !userProfile.inches) {
@@ -508,27 +846,26 @@ const WorkoutApp: React.FC = () => {
     await AsyncStorage.setItem('userProfile', JSON.stringify(userProfile));
     await AsyncStorage.setItem('workoutPath', workoutPath);
     setIsFirstLaunch(false);
-    await generateWorkoutPlan();
     setProfileModalVisible(false);
     showAlert('Profile Saved', 'Your profile has been updated successfully.');
-  }, [userProfile, workoutPath, generateWorkoutPlan, showAlert]);
+  }, [userProfile, workoutPath, showAlert]);
 
   const handleWorkoutCompletion = useCallback(async (difficulty: 'easy' | 'just right' | 'hard') => {
-    if (!workoutPlan || !agixtService) return;
+    if (!workoutPlan.length || !agixtService) return;
 
     const feedback: WorkoutFeedback = {
-      workoutId: workoutPlan.conversationName,
+      workoutId: workoutPlan[0].conversationName,
       difficulty,
-      completedExercises: workoutPlan.workoutPlan.weeklyPlan.flatMap(day => day.exercises.map(ex => ex.name)),
+      completedExercises: workoutPlan[0].workoutPlan.weeklyPlan[0].exercises.map(ex => ex.name),
     };
 
     setWorkoutFeedback(feedback);
 
     try {
       setLoading(true);
-      await agixtService.logWorkoutCompletion(userProfile, workoutPlan.workoutPlan, feedback);
-      setWorkoutPlan(prevPlan => ({ ...prevPlan!, completed: true }));
-      await AsyncStorage.setItem('currentWorkoutPlan', JSON.stringify({ ...workoutPlan, completed: true }));
+      await agixtService.logWorkoutCompletion(userProfile, workoutPlan[0].workoutPlan, feedback);
+      setWorkoutPlan(prevPlan => prevPlan.slice(1));
+      await AsyncStorage.setItem('currentWorkoutPlan', JSON.stringify(workoutPlan.slice(1)));
       setFeedbackModalVisible(false);
       setWorkoutsCompleted(prevCompleted => {
         const newCompleted = prevCompleted + 1;
@@ -541,14 +878,16 @@ const WorkoutApp: React.FC = () => {
         AsyncStorage.setItem('points', newPoints.toString());
         return newPoints;
       });
-      await generateWorkoutPlan();
+      if (workoutPlan.length <= 1) {
+        await generateWorkouts(workoutPreferences!);
+      }
     } catch (error) {
       console.error('Error logging workout completion:', error);
       showAlert('Error', 'Failed to record workout feedback. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, [workoutPlan, agixtService, userProfile, checkAchievements, generateWorkoutPlan, showAlert]);
+  }, [workoutPlan, agixtService, userProfile, checkAchievements, generateWorkouts, workoutPreferences, showAlert]);
 
   const refreshMotivationalQuote = useCallback(async () => {
     if (!agixtService) return;
@@ -615,9 +954,9 @@ const WorkoutApp: React.FC = () => {
   const renderMainContent = useCallback(() => {
     switch (activeTab) {
       case 'dashboard':
-        return <DashboardTab userProfile={userProfile} workoutPlan={workoutPlan} points={points} motivationalQuote={motivationalQuote} refreshQuote={refreshMotivationalQuote} />;
+        return <DashboardTab userProfile={userProfile} workoutPlan={workoutPlan[0]} points={points} motivationalQuote={motivationalQuote} refreshQuote={refreshMotivationalQuote} />;
       case 'workout':
-        return <WorkoutTab workoutPlan={workoutPlan} onGenerateWorkout={generateWorkoutPlan} onCompleteWorkout={handleWorkoutCompletion} />;
+        return <WorkoutTab workoutPlan={workoutPlan} onGenerateWorkout={() => generateWorkouts(workoutPreferences!)} onCompleteWorkout={handleWorkoutCompletion} />;
       case 'nutrition':
         return <NutritionTab mealPlan={mealPlan} onUpdateMealPlan={loadMealPlan} />;
       case 'progress':
@@ -625,12 +964,19 @@ const WorkoutApp: React.FC = () => {
       case 'challenges':
         return <ChallengesTab challenges={challenges} onCompleteChallenge={completeChallenge} onRefreshChallenges={loadChallenges} />;
       default:
-        return <DashboardTab userProfile={userProfile} workoutPlan={workoutPlan} points={points} motivationalQuote={motivationalQuote} refreshQuote={refreshMotivationalQuote} />;
+        return <DashboardTab userProfile={userProfile} workoutPlan={workoutPlan[0]} points={points} motivationalQuote={motivationalQuote} refreshQuote={refreshMotivationalQuote} />;
     }
-  }, [activeTab, userProfile, workoutPlan, points, motivationalQuote, refreshMotivationalQuote, generateWorkoutPlan, handleWorkoutCompletion, mealPlan, loadMealPlan, bmiHistory, progressReport, getProgressReport, challenges, completeChallenge, loadChallenges]);
+  }, [activeTab, userProfile, workoutPlan, points, motivationalQuote, refreshMotivationalQuote, handleWorkoutCompletion, mealPlan, loadMealPlan, bmiHistory, progressReport, getProgressReport, challenges, completeChallenge, loadChallenges, generateWorkouts, workoutPreferences]);
 
   if (showWelcome) {
-    return <WelcomeScreen onComplete={() => setShowWelcome(false)} />;
+    return <WelcomeScreen onComplete={() => {
+      setShowWelcome(false);
+      setShowWorkoutSelection(true);
+    }} />;
+  }
+
+  if (showWorkoutSelection) {
+    return <WorkoutSelectionScreen onComplete={handleWorkoutPreferencesComplete} />;
   }
 
   return (
@@ -792,42 +1138,6 @@ const WorkoutApp: React.FC = () => {
           </View>
         </Modal>
 
-        {/* Challenges Modal */}
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={challengesModalVisible}
-          onRequestClose={() => setChallengesModalVisible(false)}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalHeader}>Challenges</Text>
-              <ScrollView>
-                {challenges.map((challenge) => (
-                  <View key={challenge.id} style={styles.challengeItem}>
-                    <Text style={styles.challengeName}>{challenge.name}</Text>
-                    <Text style={styles.challengeDescription}>{challenge.description}</Text>
-                    <Text style={styles.challengeDuration}>Duration: {challenge.duration}</Text>
-                    <Text style={styles.challengeDifficulty}>Difficulty: {challenge.difficulty}</Text>
-                    <TouchableOpacity
-                      style={[styles.challengeButton, challenge.completed && styles.challengeCompleted]}
-                      onPress={() => completeChallenge(challenge.id)}
-                      disabled={challenge.completed}
-                    >
-                      <Text style={styles.challengeButtonText}>
-                        {challenge.completed ? 'Completed' : 'Complete'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </ScrollView>
-              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setChallengesModalVisible(false)}>
-                <Text style={styles.modalButtonText}>Close</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-
         {/* Settings Modal */}
         <Modal
           animationType="slide"
@@ -891,204 +1201,6 @@ const WorkoutApp: React.FC = () => {
         </Modal>
       </SafeAreaView>
     </ErrorBoundary>
-  );
-};
-
-interface DashboardTabProps {
-  userProfile: UserProfile;
-  workoutPlan: WorkoutPlanResponse | null;
-  points: number;
-  motivationalQuote: string;
-  refreshQuote: () => Promise<void>;
-}
-
-const DashboardTab: React.FC<DashboardTabProps> = ({ userProfile, workoutPlan, points, motivationalQuote, refreshQuote }) => {
-  return (
-    <ScrollView style={styles.tabContent}>
-      <View style={styles.welcomeSection}>
-        <LottieView
-          source={require('./assets/workout-animation.json')}
-          autoPlay
-          loop
-          style={styles.lottieAnimation}
-        />
-        <Text style={styles.welcomeText}>Welcome back, {userProfile.name}!</Text>
-        <Text style={styles.pointsText}>{points} Fitness Points</Text>
-      </View>
-
-      {workoutPlan && (
-        <View style={styles.workoutCard}>
-          <Text style={styles.cardTitle}>Today's Workout</Text>
-          <Text style={styles.workoutInfo}>{workoutPlan.workoutPlan.weeklyPlan[0].day}</Text>
-          <TouchableOpacity style={styles.startButton}>
-            <Text style={styles.startButtonText}>Start Workout</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      <View style={styles.quoteCard}>
-        <Text style={styles.quoteText}>{motivationalQuote}</Text>
-        <TouchableOpacity style={styles.refreshButton} onPress={refreshQuote}>
-          <Ionicons name="refresh-outline" size={24} color="#FFD700" />
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
-  );
-};
-
-interface WorkoutTabProps {
-  workoutPlan: WorkoutPlanResponse | null;
-  onGenerateWorkout: () => Promise<void>;
-  onCompleteWorkout: (difficulty: 'easy' | 'just right' | 'hard') => Promise<void>;
-}
-
-const WorkoutTab: React.FC<WorkoutTabProps> = ({ workoutPlan, onGenerateWorkout, onCompleteWorkout }) => {
-  return (
-    <ScrollView style={styles.tabContent}>
-      <Text style={styles.tabTitle}>Workout</Text>
-      {workoutPlan ? (
-        <View>
-          <Text style={styles.sectionTitle}>{workoutPlan.workoutPlan.weeklyPlan[0].day}</Text>
-          {workoutPlan.workoutPlan.weeklyPlan[0].exercises.map((exercise, index) => (
-            <View key={index} style={styles.exerciseItem}>
-              <Text style={styles.exerciseName}>{exercise.name}</Text>
-              <Text style={styles.exerciseDetail}>Sets: {exercise.sets}</Text>
-              <Text style={styles.exerciseDetail}>Reps: {exercise.reps}</Text>
-              <Text style={styles.exerciseDetail}>Rest: {exercise.rest}</Text>
-              {exercise.text && <Text style={styles.exerciseDetail}>{exercise.text}</Text>}
-            </View>
-          ))}
-          <TouchableOpacity style={styles.completeWorkoutButton} onPress={() => onCompleteWorkout('just right')}>
-            <Text style={styles.completeWorkoutButtonText}>Complete Workout</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <TouchableOpacity style={styles.generateWorkoutButton} onPress={onGenerateWorkout}>
-          <Text style={styles.generateWorkoutButtonText}>Generate Workout Plan</Text>
-        </TouchableOpacity>
-      )}
-    </ScrollView>
-  );
-};
-
-interface NutritionTabProps {
-  mealPlan: MealPlan | null;
-  onUpdateMealPlan: () => Promise<void>;
-}
-
-const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan }) => {
-  return (
-    <ScrollView style={styles.tabContent}>
-      <Text style={styles.tabTitle}>Nutrition</Text>
-      {mealPlan ? (
-        <View style={styles.mealPlanContainer}>
-          <Text style={styles.sectionTitle}>Today's Meal Plan</Text>
-          <Text style={styles.mealTitle}>Breakfast:</Text>
-          <Text style={styles.mealContent}>{mealPlan.breakfast}</Text>
-          <Text style={styles.mealTitle}>Lunch:</Text>
-          <Text style={styles.mealContent}>{mealPlan.lunch}</Text>
-          <Text style={styles.mealTitle}>Dinner:</Text>
-          <Text style={styles.mealContent}>{mealPlan.dinner}</Text>
-          <Text style={styles.mealTitle}>Snacks:</Text>
-          {mealPlan.snacks.map((snack, index) => (
-            <Text key={index} style={styles.mealContent}>{snack}</Text>
-          ))}
-          <TouchableOpacity style={styles.updateMealPlanButton} onPress={onUpdateMealPlan}>
-            <Text style={styles.updateMealPlanButtonText}>Update Meal Plan</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <TouchableOpacity style={styles.generateMealPlanButton} onPress={onUpdateMealPlan}>
-          <Text style={styles.generateMealPlanButtonText}>Generate Meal Plan</Text>
-        </TouchableOpacity>
-      )}
-    </ScrollView>
-  );
-};
-
-interface ProgressTabProps {
-  bmiHistory: {date: string, bmi: number}[];
-  progressReport: string;
-  onCalculateBMI: () => void;
-  onGenerateReport: () => Promise<void>;
-}
-
-const ProgressTab: React.FC<ProgressTabProps> = ({ bmiHistory, progressReport, onCalculateBMI, onGenerateReport }) => {
-  return (
-    <ScrollView style={styles.tabContent}>
-      <Text style={styles.tabTitle}>Progress</Text>
-      <TouchableOpacity style={styles.calculateBMIButton} onPress={onCalculateBMI}>
-        <Text style={styles.calculateBMIButtonText}>Calculate BMI</Text>
-      </TouchableOpacity>
-      {bmiHistory.length > 0 && (
-        <View style={styles.bmiChartContainer}>
-          <Text style={styles.sectionTitle}>BMI History</Text>
-          <LineChart
-            data={{
-              labels: bmiHistory.map(entry => new Date(entry.date).toLocaleDateString()),
-              datasets: [{ data: bmiHistory.map(entry => entry.bmi) }]
-            }}
-            width={Dimensions.get('window').width - 40}
-            height={220}
-            chartConfig={{
-              backgroundColor: '#e26a00',
-              backgroundGradientFrom: '#fb8c00',
-              backgroundGradientTo: '#ffa726',
-              decimalPlaces: 2,
-              color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-              style: {
-                borderRadius: 16
-              }
-            }}
-            bezier
-            style={styles.chart}
-          />
-        </View>
-      )}
-      <TouchableOpacity style={styles.generateReportButton} onPress={onGenerateReport}>
-        <Text style={styles.generateReportButtonText}>Generate Progress Report</Text>
-      </TouchableOpacity>
-      {progressReport && (
-        <View style={styles.progressReportContainer}>
-          <Text style={styles.sectionTitle}>Progress Report</Text>
-          <Text style={styles.progressReportContent}>{progressReport}</Text>
-        </View>
-      )}
-    </ScrollView>
-  );
-};
-
-interface ChallengesTabProps {
-  challenges: Challenge[];
-  onCompleteChallenge: (challengeId: number) => Promise<void>;
-  onRefreshChallenges: () => Promise<void>;
-}
-
-const ChallengesTab: React.FC<ChallengesTabProps> = ({ challenges, onCompleteChallenge, onRefreshChallenges }) => {
-  return (
-    <ScrollView style={styles.tabContent}>
-      <Text style={styles.tabTitle}>Challenges</Text>
-      {challenges.map((challenge) => (
-        <View key={challenge.id} style={styles.challengeItem}>
-          <Text style={styles.challengeName}>{challenge.name}</Text>
-          <Text style={styles.challengeDescription}>{challenge.description}</Text>
-          <Text style={styles.challengeDuration}>Duration: {challenge.duration}</Text>
-          <Text style={styles.challengeDifficulty}>Difficulty: {challenge.difficulty}</Text>
-          <TouchableOpacity
-            style={[styles.challengeButton, challenge.completed && styles.challengeCompleted]}
-            onPress={() => onCompleteChallenge(challenge.id)}
-            disabled={challenge.completed}
-          >
-            <Text style={styles.challengeButtonText}>
-              {challenge.completed ? 'Completed' : 'Complete'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      ))}
-      <TouchableOpacity style={styles.refreshChallengesButton} onPress={onRefreshChallenges}>
-        <Text style={styles.refreshChallengesButtonText}>Refresh Challenges</Text>
-      </TouchableOpacity>
-    </ScrollView>
   );
 };
 
@@ -1263,6 +1375,33 @@ const styles = StyleSheet.create({
     color: '#000',
     fontWeight: 'bold',
   },
+  workoutList: {
+    maxHeight: 200,
+    marginTop: 20,
+  },
+  workoutListHeader: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFD700',
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  workoutItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#333',
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 10,
+  },
+  workoutName: {
+    color: '#fff',
+    fontSize: 16,
+  },
+  incompatibleWorkout: {
+    opacity: 0.5,
+  },
   tabContent: {
     flex: 1,
     padding: 20,
@@ -1411,25 +1550,6 @@ const styles = StyleSheet.create({
     color: '#000',
     fontWeight: 'bold',
   },
-  supplementItem: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 15,
-  },
-  supplementName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFD700',
-    marginBottom: 5,
-  },
-  supplementDosage: {
-    color: '#fff',
-    marginBottom: 5,
-  },
-  supplementBenefit: {
-    color: '#ccc',
-  },
   quoteCard: {
     backgroundColor: '#1a1a1a',
     borderRadius: 10,
@@ -1478,10 +1598,6 @@ const styles = StyleSheet.create({
   welcomeSection: {
     alignItems: 'center',
     marginBottom: 20,
-  },
-  lottieAnimation: {
-    width: 200,
-    height: 200,
   },
   welcomeText: {
     fontSize: 24,
@@ -1604,6 +1720,44 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   refreshChallengesButtonText: {
+    color: '#000',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  questionContainer: {
+    width: '80%',
+  },
+  questionText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFD700',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  optionButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#333',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  selectedOption: {
+    backgroundColor: '#4a4a4a',
+  },
+  optionText: {
+    fontSize: 18,
+    color: '#fff',
+  },
+  nextButton: {
+    backgroundColor: '#FFD700',
+    padding: 15,
+    borderRadius: 5,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  nextButtonText: {
     color: '#000',
     fontWeight: 'bold',
     fontSize: 16,

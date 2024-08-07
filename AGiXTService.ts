@@ -102,6 +102,12 @@ export interface FitnessForecast {
   };
 }
 
+export interface WorkoutPreferences {
+  location: string;
+  space: string;
+  equipment: string[];
+}
+
 class AGiXTService {
   private baseUri: string;
   private headers: { [key: string]: string };
@@ -255,24 +261,29 @@ class AGiXTService {
     return jsonResponse;
   }
 
-  async createWorkoutPlan(userProfile: UserProfile, workoutPath: string): Promise<WorkoutPlanResponse> {
+  async generateMultipleWorkouts(preferences: WorkoutPreferences, count: number = 3): Promise<WorkoutPlanResponse[]> {
     await this.initializeWorkoutAgent();
 
-    const conversationName = `Workout_${userProfile.name}_${Date.now()}`;
+    const conversationName = `MultipleWorkouts_${Date.now()}`;
 
     try {
       await this.newConversation(this.agentName, conversationName);
 
-      const prompt = `Create a comprehensive workout plan for a ${userProfile.gender} aged ${userProfile.age}, 
-        height ${userProfile.feet}'${userProfile.inches}", weight ${userProfile.weight} lbs, with a fitness goal of ${userProfile.goal} 
-        and workout path of ${workoutPath}. Their current fitness level is ${userProfile.fitnessLevel} and they can train ${userProfile.daysPerWeek} days per week. 
-        Include specific exercises, sets, reps, and rest periods for each day. Also, provide nutrition advice tailored to their goal.
-        
+      const prompt = `Generate ${count} unique workout plans for someone with the following preferences:
+        Location: ${preferences.location}
+        Available space: ${preferences.space}
+        Equipment: ${preferences.equipment.join(', ')}
+
+        Each workout plan should be suitable for the given preferences and include:
+        1. A unique name for the workout
+        2. 5-7 exercises
+        3. For each exercise: name, sets, reps, rest time, and any additional instructions
+
         Please format the response as a JSON object with the following structure:
         {
-          "weeklyPlan": [
+          "workouts": [
             {
-              "day": "Day 1",
+              "name": "Workout Name",
               "exercises": [
                 {
                   "name": "Exercise Name",
@@ -283,25 +294,32 @@ class AGiXTService {
                 }
               ]
             }
-          ],
-          "nutritionAdvice": "Detailed nutrition advice here"
+          ]
         }`;
 
       console.log("Sending prompt to AGiXT:", prompt);
       const response = await this.chat(this.agentName, prompt, conversationName);
       console.log("Received response from AGiXT:", response);
 
-      const workoutPlan = this.extractJson(response);
+      const generatedWorkouts = this.extractJson(response).workouts;
 
-      await this.newConversationMessage('assistant', JSON.stringify(workoutPlan, null, 2), conversationName);
-
-      return {
-        conversationName,
-        workoutPlan,
+      const workoutPlans: WorkoutPlanResponse[] = generatedWorkouts.map((workout: any, index: number) => ({
+        conversationName: `${conversationName}_${index}`,
+        workoutPlan: {
+          weeklyPlan: [{
+            day: workout.name,
+            exercises: workout.exercises
+          }],
+          nutritionAdvice: "Personalized nutrition advice will be generated separately."
+        },
         completed: false
-      };
+      }));
+
+      await this.newConversationMessage('assistant', JSON.stringify(workoutPlans, null, 2), conversationName);
+
+      return workoutPlans;
     } catch (error) {
-      console.error('Error generating workout plan:', error);
+      console.error('Error generating multiple workouts:', error);
       throw error;
     }
   }
@@ -599,48 +617,6 @@ class AGiXTService {
       return customExercises;
     } catch (error) {
       console.error('Error adding custom exercise:', error);
-      throw error;
-    }
-  }
-
-  async adjustWorkoutPlan(userProfile: UserProfile, feedback: WorkoutFeedback): Promise<WorkoutPlan> {
-    await this.initializeWorkoutAgent();
-
-    const conversationName = `AdjustWorkout_${userProfile.name}_${Date.now()}`;
-
-    try {
-      await this.newConversation(this.agentName, conversationName);
-
-      const prompt = `Adjust the workout plan for a ${userProfile.gender} aged ${userProfile.age}, height ${userProfile.feet}'${userProfile.inches}", 
-        weight ${userProfile.weight} lbs, with a fitness goal of ${userProfile.goal}. Consider the following feedback: ${JSON.stringify(feedback)}. 
-        
-        Please format the response as a JSON object with the following structure:
-        {
-          "weeklyPlan": [
-            {
-              "day": "Day 1",
-              "exercises": [
-                {
-                  "name": "Exercise Name",
-                  "sets": 3,
-                  "reps": "10-12",
-                  "rest": "60 seconds",
-                  "text": "Additional details about the exercise"
-                }
-              ]
-            }
-          ],
-          "nutritionAdvice": "Detailed nutrition advice here"
-        }`;
-
-      const response = await this.chat(this.agentName, prompt, conversationName);
-      const workoutPlan = this.extractJson(response);
-
-      await this.newConversationMessage('assistant', JSON.stringify(workoutPlan, null, 2), conversationName);
-
-      return workoutPlan;
-    } catch (error) {
-      console.error('Error adjusting workout plan:', error);
       throw error;
     }
   }
