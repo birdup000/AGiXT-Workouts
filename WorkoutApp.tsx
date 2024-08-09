@@ -45,7 +45,7 @@ import AGiXTService, {
   SocialChallenge,
   ProgressReport,
   BodyMeasurements
-} from './AGiXTService';
+} from './AGiXTService'; // Make sure to replace with your actual AGiXTService file
 
 const { width, height } = Dimensions.get('window');
 const Tab = createBottomTabNavigator();
@@ -205,7 +205,9 @@ const AchievementsModal: React.FC<{ visible: boolean; onClose: () => void; userP
 
 const WelcomeScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [displayText, setDisplayText] = useState('');
-  const [settingsModalVisible, setSettingsModalVisible] = useState(false); // Declare the state variable
+  const [settingsModalVisible, setSettingsModalVisible] = useState(true); // Show modal on component mount
+  const [apiKey, setApiKey] = useState('');
+  const [apiUri, setApiUri] = useState('');
 
   const fullText = 'Welcome to AGiXT Workouts';
 
@@ -223,18 +225,61 @@ const WelcomeScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     return () => clearInterval(typingInterval);
   }, []);
 
+  const handleSaveSettings = async () => {
+    if (!apiKey.trim() || !apiUri.trim()) {
+      // Handle invalid input (e.g., show an error message)
+      return;
+    }
+
+    try {
+      await AsyncStorage.setItem('apiKey', apiKey);
+      await AsyncStorage.setItem('apiUri', apiUri);
+
+      // After saving settings, navigate to the next screen
+      navigation.navigate('WorkoutSelection');
+      setSettingsModalVisible(false);
+    } catch (error) {
+      // Handle error saving settings (e.g., show an error message)
+    }
+  };
+
   return (
     <View style={styles.welcomeContainer}>
       <Text style={styles.welcomeTitle}>{displayText}</Text>
-      <TouchableOpacity 
-        style={styles.getStartedButton}
-        onPress={() => {
-          navigation.navigate('WorkoutSelection'); // Navigate to workout selection
-          setSettingsModalVisible(true); // Use the state variable
-        }}
+
+      {/* Settings Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={settingsModalVisible}
+        onRequestClose={() => setSettingsModalVisible(false)}
       >
-        <Text style={styles.getStartedButtonText}>Get Started</Text>
-      </TouchableOpacity>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalHeader}>AGiXT Settings</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="API Key"
+              value={apiKey}
+              onChangeText={setApiKey}
+              placeholderTextColor="#ccc"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="API URI"
+              value={apiUri}
+              onChangeText={setApiUri}
+              placeholderTextColor="#ccc"
+            />
+            <TouchableOpacity style={styles.modalButton} onPress={handleSaveSettings}>
+              <Text style={styles.modalButtonText}>Save Settings</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setSettingsModalVisible(false)}>
+              <Text style={styles.modalButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -349,7 +394,7 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ userProfile, workoutPlan, p
 
         <View style={{ width: 150, height: 150, overflow: 'hidden', alignSelf: 'center' }}>
         <LottieView
-  source={require('./assets/animations/exercise.json')}
+  source={require('./assets/animations/exercise.json')} // Replace with your actual animation file
   autoPlay
   loop
   style={{
