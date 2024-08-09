@@ -12,6 +12,15 @@ export interface UserProfile {
   daysPerWeek: string;
   bio: string;
   interests: string;
+  profileImage: string | null;
+  level: number;
+  experiencePoints: number;
+  currentStreak: number;
+  longestStreak: number;
+  lastWorkoutDate: string;
+  coins: number;
+  unlockedAchievements: string[];
+  friends: string[];
 }
 
 export interface Exercise {
@@ -36,6 +45,7 @@ export interface WorkoutPlanResponse {
   conversationName: string;
   workoutPlan: WorkoutPlan;
   completed: boolean;
+  difficulty: number;
 }
 
 export interface Challenge {
@@ -80,6 +90,7 @@ export interface FeedbackAnalysis {
 
 export interface AdaptiveWorkoutPlan extends WorkoutPlan {
   adaptationLevel: number;
+  recommendedDifficulty: number;
 }
 
 export interface AnomalyDetectionResult {
@@ -89,8 +100,9 @@ export interface AnomalyDetectionResult {
 
 export interface PersonalizedRecommendation {
   workoutPlan: WorkoutPlan;
-  exercises: string[];
-  nutritionAdvice: string;
+  focusAreas: string[];
+  recommendedExercises: string[];
+  nutritionTips: string[];
 }
 
 export interface FitnessForecast {
@@ -108,10 +120,45 @@ export interface WorkoutPreferences {
   equipment: string[];
 }
 
+export interface SocialChallenge {
+  id: string;
+  creatorId: string;
+  participantIds: string[];
+  challengeName: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  goal: number;
+  unit: string;
+}
+
+export interface ProgressReport {
+  summary: string;
+  workoutProgress: {
+    totalWorkouts: number;
+    averageDifficulty: number;
+    mostImprovedExercises: string[];
+  };
+  bodyCompositionChanges: {
+    weightChange: number;
+    bodyFatPercentageChange: number;
+  };
+  recommendations: string[];
+}
+
+export interface BodyMeasurements {
+  date: string;
+  weight: number;
+  bodyFatPercentage: number;
+  measurements: {
+    [key: string]: number;
+  };
+}
+
 class AGiXTService {
-  private baseUri: string;
-  private headers: { [key: string]: string };
-  private agentName: string = 'WorkoutAgent';
+  public baseUri: string;
+  public headers: { [key: string]: string };
+  public agentName: string = 'WorkoutAgent';
 
   constructor() {
     this.baseUri = '';
@@ -144,15 +191,15 @@ class AGiXTService {
     }
   }
 
-  async getAgents(): Promise<any> {
+  public async getAgents(): Promise<any> {
     return this.request('get', '/api/agent');
   }
 
-  async addAgent(agentName: string, settings: any = {}): Promise<any> {
+  public async addAgent(agentName: string, settings: any = {}): Promise<any> {
     return this.request('post', '/api/agent', { agent_name: agentName, settings });
   }
 
-  async newConversation(agentName: string, conversationName: string, conversationContent: any[] = []): Promise<any> {
+  public async newConversation(agentName: string, conversationName: string, conversationContent: any[] = []): Promise<any> {
     return this.request('post', '/api/conversation', {
       conversation_name: conversationName,
       agent_name: agentName,
@@ -160,7 +207,7 @@ class AGiXTService {
     });
   }
 
-  async chat(agentName: string, userInput: string, conversationName: string, contextResults = 4): Promise<any> {
+  public async chat(agentName: string, userInput: string, conversationName: string, contextResults = 4): Promise<any> {
     return this.request('post', `/api/agent/${agentName}/prompt`, {
       prompt_name: 'Chat',
       prompt_args: {
@@ -172,7 +219,7 @@ class AGiXTService {
     });
   }
 
-  async newConversationMessage(role: string, message: string, conversationName: string): Promise<any> {
+  public async newConversationMessage(role: string, message: string, conversationName: string): Promise<any> {
     return this.request('post', '/api/conversation/message', {
       role,
       message,
@@ -180,7 +227,7 @@ class AGiXTService {
     });
   }
 
-  async initializeWorkoutAgent(): Promise<void> {
+  public async initializeWorkoutAgent(): Promise<void> {
     try {
       const agentsResponse = await this.getAgents();
       const agents = agentsResponse.agents || [];
@@ -211,7 +258,7 @@ class AGiXTService {
     }
   }
 
-  private extractJson(response: any): any {
+  public extractJson(response: any): any {
     let jsonResponse: any;
 
     if (typeof response === 'string') {
@@ -261,49 +308,65 @@ class AGiXTService {
     return jsonResponse;
   }
 
-  async generateMultipleWorkouts(preferences: WorkoutPreferences, count: number = 3): Promise<WorkoutPlanResponse[]> {
+  public async generateMultipleWorkouts(preferences: WorkoutPreferences, userProfile: UserProfile, count: number = 3): Promise<WorkoutPlanResponse[]> {
     await this.initializeWorkoutAgent();
 
     const conversationName = `MultipleWorkouts_${Date.now()}`;
+    const generatedWorkouts: any[] = [];
+    const workoutNames = new Set();
 
     try {
       await this.newConversation(this.agentName, conversationName);
 
-      const prompt = `Generate ${count} unique workout plans for someone with the following preferences:
-        Location: ${preferences.location}
-        Available space: ${preferences.space}
-        Equipment: ${preferences.equipment.join(', ')}
+      const chunkSize = Math.ceil(count / 3);
+      for (let i = 0; i < count; i += chunkSize) {
+        const numToGenerate = Math.min(chunkSize, count - i);
+        const prompt = `Generate ${numToGenerate} unique workout plans for a ${userProfile.gender} aged ${userProfile.age} with a fitness level of ${userProfile.fitnessLevel} and the following preferences:
+          Location: ${preferences.location}
+          Available space: ${preferences.space}
+          Equipment: ${preferences.equipment.join(', ')}
+          Fitness goal: ${userProfile.goal}
 
-        Each workout plan should be suitable for the given preferences and include:
-        1. A unique name for the workout
-        2. 5-7 exercises
-        3. For each exercise: name, sets, reps, rest time, and any additional instructions
+          Each workout plan should be suitable for the given preferences and include:
+          1. A unique name for the workout
+          2. 5-7 exercises
+          3. For each exercise: name, sets, reps, rest time, and any additional instructions
+          4. A difficulty rating (1-5) based on the user's fitness level
 
-        Please format the response as a JSON object with the following structure:
-        {
-          "workouts": [
-            {
-              "name": "Workout Name",
-              "exercises": [
-                {
-                  "name": "Exercise Name",
-                  "sets": 3,
-                  "reps": "10-12",
-                  "rest": "60 seconds",
-                  "text": "Additional details about the exercise"
-                }
-              ]
-            }
-          ]
-        }`;
+          Please format the response as a JSON object with the following structure:
+          {
+            "workouts": [
+              {
+                "name": "Workout Name",
+                "difficulty": 3,
+                "exercises": [
+                  {
+                    "name": "Exercise Name",
+                    "sets": 3,
+                    "reps": "10-12",
+                    "rest": "60 seconds",
+                    "text": "Additional details about the exercise"
+                  }
+                ]
+              }
+            ]
+          }`;
 
-      console.log("Sending prompt to AGiXT:", prompt);
-      const response = await this.chat(this.agentName, prompt, conversationName);
-      console.log("Received response from AGiXT:", response);
+        console.log("Sending prompt to AGiXT:", prompt);
+        const response = await this.chat(this.agentName, prompt, conversationName);
+        console.log("Received response from AGiXT:", response);
 
-      const generatedWorkouts = this.extractJson(response).workouts;
+        const newWorkouts = this.extractJson(response).workouts;
 
-      const workoutPlans: WorkoutPlanResponse[] = generatedWorkouts.map((workout: any, index: number) => ({
+        newWorkouts.forEach((workout: any) => {
+          if (!workoutNames.has(workout.name)) {
+            workoutNames.add(workout.name);
+            generatedWorkouts.push(workout);
+          }
+        });
+      }
+
+      const workoutPlans: WorkoutPlanResponse[] = generatedWorkouts.map((workout, index) => ({
         conversationName: `${conversationName}_${index}`,
         workoutPlan: {
           weeklyPlan: [{
@@ -312,7 +375,8 @@ class AGiXTService {
           }],
           nutritionAdvice: "Personalized nutrition advice will be generated separately."
         },
-        completed: false
+        completed: false,
+        difficulty: workout.difficulty
       }));
 
       await this.newConversationMessage('assistant', JSON.stringify(workoutPlans, null, 2), conversationName);
@@ -324,7 +388,7 @@ class AGiXTService {
     }
   }
 
-  async getChallenges(userProfile: UserProfile): Promise<Challenge[]> {
+  public async getChallenges(userProfile: UserProfile): Promise<Challenge[]> {
     await this.initializeWorkoutAgent();
 
     const conversationName = `Challenges_${userProfile.name}_${Date.now()}`;
@@ -362,7 +426,7 @@ class AGiXTService {
     }
   }
 
-  async analyzeFeedback(feedback: string): Promise<FeedbackAnalysis> {
+  public async analyzeFeedback(feedback: string): Promise<FeedbackAnalysis> {
     await this.initializeWorkoutAgent();
     const conversationName = `FeedbackAnalysis_${Date.now()}`;
 
@@ -386,15 +450,21 @@ class AGiXTService {
     }
   }
 
-  async getAdaptiveWorkout(userProfile: UserProfile, previousPerformance: number[]): Promise<AdaptiveWorkoutPlan> {
+  public async getAdaptiveWorkout(userProfile: UserProfile, previousPerformance: WorkoutFeedback[]): Promise<AdaptiveWorkoutPlan> {
     await this.initializeWorkoutAgent();
     const conversationName = `AdaptiveWorkout_${userProfile.name}_${Date.now()}`;
 
     try {
       await this.newConversation(this.agentName, conversationName);
 
+      const averageDifficulty = previousPerformance.reduce((sum, feedback) => {
+        return sum + (feedback.difficulty === 'easy' ? 1 : feedback.difficulty === 'just right' ? 2 : 3);
+      }, 0) / previousPerformance.length;
+
       const prompt = `Create an adaptive workout plan for a ${userProfile.gender} aged ${userProfile.age}, 
-        with a fitness goal of ${userProfile.goal}. Consider the previous performance: ${previousPerformance.join(', ')}.
+        with a fitness goal of ${userProfile.goal} and fitness level ${userProfile.fitnessLevel}. 
+        The average difficulty of previous workouts was ${averageDifficulty.toFixed(2)} (1=easy, 2=just right, 3=hard).
+        Adjust the workout difficulty and complexity based on this information.
         
         Please format the response as a JSON object with the following structure:
         {
@@ -411,9 +481,10 @@ class AGiXTService {
                 }
               ]
             }
-          ],
+              ],
           "nutritionAdvice": "Detailed nutrition advice here",
-          "adaptationLevel": 0.75
+          "adaptationLevel": 0.75,
+          "recommendedDifficulty": 2.5
         }`;
 
       const response = await this.chat(this.agentName, prompt, conversationName);
@@ -424,7 +495,7 @@ class AGiXTService {
     }
   }
 
-  async detectAnomalies(userMetrics: number[]): Promise<AnomalyDetectionResult> {
+  public async detectAnomalies(userMetrics: number[]): Promise<AnomalyDetectionResult> {
     await this.initializeWorkoutAgent();
     const conversationName = `AnomalyDetection_${Date.now()}`;
 
@@ -447,7 +518,7 @@ class AGiXTService {
     }
   }
 
-  async getPersonalizedRecommendations(userProfile: UserProfile, userPreferences: string[]): Promise<PersonalizedRecommendation> {
+  public async getPersonalizedRecommendations(userProfile: UserProfile, workoutHistory: WorkoutFeedback[], preferences: WorkoutPreferences): Promise<PersonalizedRecommendation> {
     await this.initializeWorkoutAgent();
     const conversationName = `PersonalizedRecommendations_${userProfile.name}_${Date.now()}`;
 
@@ -455,7 +526,9 @@ class AGiXTService {
       await this.newConversation(this.agentName, conversationName);
 
       const prompt = `Generate personalized workout and nutrition recommendations for a ${userProfile.gender} aged ${userProfile.age}, 
-        with a fitness goal of ${userProfile.goal}. User preferences: ${userPreferences.join(', ')}.
+        with a fitness goal of ${userProfile.goal} and fitness level ${userProfile.fitnessLevel}.
+        User preferences: ${JSON.stringify(preferences)}
+        Workout history: ${JSON.stringify(workoutHistory)}
         
         Please format the response as a JSON object with the following structure:
         {
@@ -463,6 +536,7 @@ class AGiXTService {
             "weeklyPlan": [
               {
                 "day": "Day 1",
+                "focus": "Strength",
                 "exercises": [
                   {
                     "name": "Exercise Name",
@@ -476,8 +550,12 @@ class AGiXTService {
             ],
             "nutritionAdvice": "Detailed nutrition advice here"
           },
-          "exercises": ["Recommended Exercise 1", "Recommended Exercise 2"],
-          "nutritionAdvice": "Personalized nutrition recommendations"
+          "focusAreas": ["Strength", "Flexibility"],
+          "recommendedExercises": ["Recommended Exercise 1", "Recommended Exercise 2"],
+          "nutritionTips": [
+            "Increase protein intake",
+            "Add more leafy greens to your diet"
+          ]
         }`;
 
       const response = await this.chat(this.agentName, prompt, conversationName);
@@ -488,7 +566,7 @@ class AGiXTService {
     }
   }
 
-  async getFitnessForecast(userProfile: UserProfile, historicalData: number[][]): Promise<FitnessForecast[]> {
+  public async getFitnessForecast(userProfile: UserProfile, historicalData: number[][]): Promise<FitnessForecast[]> {
     await this.initializeWorkoutAgent();
     const conversationName = `FitnessForecast_${userProfile.name}_${Date.now()}`;
 
@@ -520,7 +598,7 @@ class AGiXTService {
     }
   }
 
-  async getSupplements(userProfile: UserProfile): Promise<Supplement[]> {
+  public async getSupplements(userProfile: UserProfile): Promise<Supplement[]> {
     await this.initializeWorkoutAgent();
 
     const conversationName = `Supplements_${userProfile.name}_${Date.now()}`;
@@ -555,7 +633,7 @@ class AGiXTService {
     }
   }
 
-  async getMealPlan(userProfile: UserProfile): Promise<MealPlan> {
+  public async getMealPlan(userProfile: UserProfile): Promise<MealPlan> {
     await this.initializeWorkoutAgent();
 
     const conversationName = `MealPlan_${userProfile.name}_${Date.now()}`;
@@ -586,7 +664,7 @@ class AGiXTService {
     }
   }
 
-  async addCustomExercise(userProfile: UserProfile, exercise: { name: string; description: string }): Promise<CustomExercise[]> {
+  public async addCustomExercise(userProfile: UserProfile, exercise: { name: string; description: string }): Promise<CustomExercise[]> {
     await this.initializeWorkoutAgent();
 
     const conversationName = `CustomExercise_${userProfile.name}_${Date.now()}`;
@@ -621,7 +699,7 @@ class AGiXTService {
     }
   }
 
-  async logWorkoutCompletion(userProfile: UserProfile, workoutPlan: WorkoutPlan, feedback: WorkoutFeedback): Promise<void> {
+  public async logWorkoutCompletion(userProfile: UserProfile, workoutPlan: WorkoutPlan, feedback: WorkoutFeedback): Promise<void> {
     await this.initializeWorkoutAgent();
 
     const conversationName = `WorkoutCompletion_${userProfile.name}_${Date.now()}`;
@@ -652,7 +730,7 @@ class AGiXTService {
     }
   }
 
-  async getMotivationalQuote(): Promise<string> {
+  public async getMotivationalQuote(): Promise<string> {
     await this.initializeWorkoutAgent();
 
     const conversationName = `MotivationalQuote_${Date.now()}`;
@@ -679,7 +757,7 @@ class AGiXTService {
     }
   }
 
-  async getProgressReport(userProfile: UserProfile): Promise<string> {
+  public async getProgressReport(userProfile: UserProfile, workoutHistory: WorkoutFeedback[], measurementHistory: BodyMeasurements[]): Promise<ProgressReport> {
     await this.initializeWorkoutAgent();
 
     const conversationName = `ProgressReport_${userProfile.name}_${Date.now()}`;
@@ -687,12 +765,29 @@ class AGiXTService {
     try {
       await this.newConversation(this.agentName, conversationName);
 
-      const prompt = `Generate a progress report for ${userProfile.name}. 
+      const prompt = `Generate a comprehensive progress report for ${userProfile.name}. 
         Consider their fitness goal of ${userProfile.goal} and current fitness level of ${userProfile.fitnessLevel}.
+        Workout history: ${JSON.stringify(workoutHistory)}
+        Measurement history: ${JSON.stringify(measurementHistory)}
         
         Please format the response as a JSON object with the following structure:
         {
-          "progressReport": "Detailed progress report here"
+          "progressReport": {
+            "summary": "Overall progress summary",
+            "workoutProgress": {
+              "totalWorkouts": 25,
+              "averageDifficulty": 2.3,
+              "mostImprovedExercises": ["Squats", "Push-ups"]
+            },
+            "bodyCompositionChanges": {
+              "weightChange": -2.5,
+              "bodyFatPercentageChange": -1.2
+            },
+            "recommendations": [
+              "Increase cardio frequency",
+              "Focus on progressive overload for bench press"
+            ]
+          }
         }`;
 
       const response = await this.chat(this.agentName, prompt, conversationName);
@@ -705,6 +800,75 @@ class AGiXTService {
       console.error('Error getting progress report:', error);
       throw error;
     }
+  }
+
+  public async createSocialChallenge(creator: UserProfile, challengeDetails: Partial<SocialChallenge>): Promise<SocialChallenge> {
+    await this.initializeWorkoutAgent();
+
+    const conversationName = `CreateSocialChallenge_${creator.name}_${Date.now()}`;
+
+    try {
+      await this.newConversation(this.agentName, conversationName);
+
+      const prompt = `Create a social fitness challenge based on the following details:
+        Creator: ${creator.name}
+        Challenge Name: ${challengeDetails.challengeName || 'Not specified'}
+        Description: ${challengeDetails.description || 'Not specified'}
+        Start Date: ${challengeDetails.startDate || 'Not specified'}
+        End Date: ${challengeDetails.endDate || 'Not specified'}
+        Goal: ${challengeDetails.goal || 'Not specified'}
+        Unit: ${challengeDetails.unit || 'Not specified'}
+
+        Please format the response as a JSON object with the following structure:
+        {
+          "id": "unique_challenge_id",
+          "creatorId": "${creator.name}",
+          "participantIds": ["${creator.name}"],
+          "challengeName": "Challenge Name",
+          "description": "Detailed challenge description",
+          "startDate": "YYYY-MM-DD",
+          "endDate": "YYYY-MM-DD",
+          "goal": 100,
+          "unit": "miles"
+        }`;
+
+      const response = await this.chat(this.agentName, prompt, conversationName);
+      const socialChallenge = this.extractJson(response);
+
+      await this.newConversationMessage('assistant', JSON.stringify(socialChallenge, null, 2), conversationName);
+
+      return socialChallenge;
+    } catch (error) {
+      console.error('Error creating social challenge:', error);
+      throw error;
+    }
+  }
+
+  public async joinSocialChallenge(user: UserProfile, challengeId: string): Promise<SocialChallenge> {
+    // This method would typically interact with a database to update the challenge
+    // For this example, we'll simulate the process
+    console.log(`User ${user.name} joined challenge ${challengeId}`);
+    return {
+      id: challengeId,
+      creatorId: 'creator123',
+      participantIds: ['creator123', user.name],
+      challengeName: 'Sample Challenge',
+      description: 'This is a sample challenge',
+      startDate: '2023-08-01',
+      endDate: '2023-08-31',
+      goal: 100,
+      unit: 'miles'
+    };
+  }
+
+  public async getSocialChallengeLeaderboard(challengeId: string): Promise<{userId: string, progress: number}[]> {
+    // This method would typically fetch data from a database
+    // For this example, we'll return mock data
+    return [
+      { userId: 'user1', progress: 75 },
+      { userId: 'user2', progress: 60 },
+      { userId: 'user3', progress: 90 },
+    ];
   }
 }
 
