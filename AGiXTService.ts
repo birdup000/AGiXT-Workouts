@@ -308,7 +308,7 @@ class AGiXTService {
     return jsonResponse;
   }
 
-  public async generateMultipleWorkouts(preferences: WorkoutPreferences, userProfile: UserProfile, count: number = 3): Promise<WorkoutPlanResponse[]> {
+  public async generateMultipleWorkouts(preferences: WorkoutPreferences, userProfile: UserProfile, count: number = 3, bodyPart: string | null = null): Promise<WorkoutPlanResponse[]> {
     await this.initializeWorkoutAgent();
 
     const conversationName = `MultipleWorkouts_${Date.now()}`;
@@ -326,6 +326,7 @@ class AGiXTService {
           Available space: ${preferences.space}
           Equipment: ${preferences.equipment.join(', ')}
           Fitness goal: ${userProfile.goal}
+          ${bodyPart ? `Focus on: ${bodyPart}` : ''} // Add body part focus if selected
 
           Each workout plan should be suitable for the given preferences and include:
           1. A unique name for the workout

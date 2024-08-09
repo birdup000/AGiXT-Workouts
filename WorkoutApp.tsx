@@ -79,8 +79,9 @@ interface DashboardTabProps {
 
 interface WorkoutTabProps {
   workoutPlan: WorkoutPlanResponse[];
-  onGenerateWorkout: () => void;
+  onGenerateWorkout: (bodyPart: string | null) => void;
   onCompleteWorkout: (difficulty: 'easy' | 'just right' | 'hard') => Promise<void>;
+  workoutPreferences: WorkoutPreferences | null; // Add this line
 }
 
 interface NutritionTabProps {
@@ -411,7 +412,10 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ userProfile, workoutPlan, p
   );
 };
 
-const WorkoutTab: React.FC<WorkoutTabProps> = ({ workoutPlan, onGenerateWorkout, onCompleteWorkout }) => {
+const WorkoutTab: React.FC<WorkoutTabProps> = ({ workoutPlan, onGenerateWorkout, onCompleteWorkout, workoutPreferences }) => {
+  const [bodyPartModalVisible, setBodyPartModalVisible] = useState(false);
+  const [selectedBodyPart, setSelectedBodyPart] = useState<string | null>(null);
+
   const renderWorkoutItem = ({ item }: { item: WorkoutPlanResponse }) => (
     <View style={styles.workoutCard}>
       <Text style={styles.cardTitle}>{item.workoutPlan.weeklyPlan[0].day}</Text>
@@ -430,19 +434,82 @@ const WorkoutTab: React.FC<WorkoutTabProps> = ({ workoutPlan, onGenerateWorkout,
     </View>
   );
 
+  useEffect(() => {
+    // Check if workoutPlan is empty and preferences are set
+    if (workoutPlan.length === 0 && workoutPreferences) {
+      onGenerateWorkout(null); // Generate initial workouts without a specific body part
+    }
+  }, [workoutPlan, workoutPreferences, onGenerateWorkout]); 
+
+  const handleGenerateWorkout = () => {
+    setBodyPartModalVisible(true);
+  };
+
+  const handleBodyPartSelect = (bodyPart: string) => {
+    setSelectedBodyPart(bodyPart);
+    onGenerateWorkout(bodyPart); 
+  };
+
   return (
-    <FlatList
-      data={workoutPlan}
-      renderItem={renderWorkoutItem}
-      keyExtractor={(item, index) => `${item.conversationName}-${index}`}
-      ListHeaderComponent={<Text style={styles.tabTitle}>Workouts</Text>}
-      ListEmptyComponent={
-        <TouchableOpacity style={styles.generateWorkoutButton} onPress={onGenerateWorkout}>
-          <Text style={styles.generateWorkoutButtonText}>Generate Workout Plans</Text>
-        </TouchableOpacity>
-      }
-      contentContainerStyle={styles.workoutTabContent}
-    />
+    <>
+      <FlatList
+        data={workoutPlan}
+        renderItem={renderWorkoutItem}
+        keyExtractor={(item, index) => `${item.conversationName}-${index}`}
+        ListHeaderComponent={<Text style={styles.tabTitle}>Workouts</Text>}
+        ListEmptyComponent={
+          <TouchableOpacity style={styles.generateWorkoutButton} onPress={handleGenerateWorkout}>
+            <Text style={styles.generateWorkoutButtonText}>Generate Workout Plans</Text>
+          </TouchableOpacity>
+        }
+        contentContainerStyle={styles.workoutTabContent}
+      />
+
+      {/* Body Part Modal */}
+      <BodyPartModal 
+        visible={bodyPartModalVisible} 
+        onClose={() => setBodyPartModalVisible(false)} 
+        onSelect={handleBodyPartSelect} 
+      />
+    </>
+  );
+};
+
+const BodyPartModal: React.FC<{ 
+  visible: boolean; 
+  onClose: () => void; 
+  onSelect: (bodyPart: string) => void; 
+}> = ({ visible, onClose, onSelect }) => {
+  const bodyParts = ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core', 'Full Body'];
+
+  return (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={visible}
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalContainer}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalHeader}>What do you want to work on today?</Text>
+          {bodyParts.map(bodyPart => (
+            <TouchableOpacity 
+              key={bodyPart} 
+              style={styles.bodyPartOption} 
+              onPress={() => {
+                onSelect(bodyPart);
+                onClose();
+              }}
+            >
+              <Text style={styles.bodyPartOptionText}>{bodyPart}</Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={onClose}>
+            <Text style={styles.modalButtonText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
   );
 };
 
@@ -713,6 +780,8 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
     const [workoutPreferences, setWorkoutPreferences] = useState<WorkoutPreferences | null>(null);
     const [socialChallenges, setSocialChallenges] = useState<SocialChallenge[]>([]);
     const [achievementsModalVisible, setAchievementsModalVisible] = useState(false);
+    const [selectedBodyPart, setSelectedBodyPart] = useState<string | null>(null);
+    const [bodyPartModalVisible, setBodyPartModalVisible] = useState(false);
   
     const showAlert = useCallback((title: string, message: string) => {
       setAlertTitle(title);
@@ -758,7 +827,7 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
           await initializeFeatures();
         } catch (error) {
           console.error('Error initializing app:', error);
-          showAlert('Error', 'Failed to initialize the app. Please restart.');
+          showAlert          ('Error', 'Failed to initialize the app. Please restart.');
         } finally {
           setLoading(false);
         }
@@ -876,7 +945,7 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
     AsyncStorage.setItem('points', points.toString());
   }, [achievements, workoutsCompleted, showAlert, points]);
 
-  const generateWorkouts = useCallback(async (preferences: WorkoutPreferences) => {
+  const generateWorkouts = useCallback(async (preferences: WorkoutPreferences, bodyPart: string | null = null) => {
     if (!agixtService) {
       showAlert('Error', 'AGiXT Service is not initialized yet.');
       return;
@@ -886,7 +955,7 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
     setError(null);
 
     try {
-      const initialWorkouts = await agixtService.generateMultipleWorkouts(preferences, userProfile, 3);
+      const initialWorkouts = await agixtService.generateMultipleWorkouts(preferences, userProfile, 3, bodyPart);
       setWorkoutPlan(initialWorkouts);
       await AsyncStorage.setItem('currentWorkoutPlan', JSON.stringify(initialWorkouts));
       setPoints(prevPoints => {
@@ -904,7 +973,7 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
   }, [agixtService, userProfile, checkAchievementsAndUpdateState, showAlert]);
 
   const handleWorkoutPreferencesComplete = async (preferences: WorkoutPreferences) => {
-    setWorkoutPreferences(preferences);
+    setWorkoutPreferences(preferences); // Use setWorkoutPreferences here
     setShowWorkoutSelection(false);
     await generateWorkouts(preferences);
   };
@@ -1057,12 +1126,17 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
       }
 
       setUserProfile(updatedProfile);
-      setWorkoutPlan(prevPlan => prevPlan.slice(1));
-      await AsyncStorage.setItem('currentWorkoutPlan', JSON.stringify(workoutPlan.slice(1)));
+
+      // Instead of slicing, remove only the completed workout
+      const updatedWorkoutPlan = workoutPlan.filter((_, index) => index !== 0); 
+      setWorkoutPlan(updatedWorkoutPlan);
+      await AsyncStorage.setItem('currentWorkoutPlan', JSON.stringify(updatedWorkoutPlan));
+
       setWorkoutsCompleted(prevCompleted => prevCompleted + 1);
 
-      if (workoutPlan.length <= 1) {
-        await generateWorkouts(workoutPreferences!);
+      // Generate more workouts only if needed (e.g., below a threshold)
+      if (updatedWorkoutPlan.length < 2) { // Adjust the threshold as needed
+        await generateWorkouts(workoutPreferences!, selectedBodyPart); // Pass selectedBodyPart
       }
     } catch (error) {
       console.error('Error logging workout completion:', error);
@@ -1070,7 +1144,7 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
     } finally {
       setLoading(false);
     }
-  }, [workoutPlan, agixtService, userProfile, generateWorkouts, workoutPreferences, showAlert, workoutsCompleted, achievements]);
+  }, [workoutPlan, agixtService, userProfile, generateWorkouts, workoutPreferences, showAlert, workoutsCompleted, achievements, selectedBodyPart]); // Add selectedBodyPart to dependency array
 
   const refreshMotivationalQuote = useCallback(async () => {
     if (!agixtService) return;
@@ -1189,7 +1263,7 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
               {() => (
                 <Tab.Navigator
                 screenOptions={({ route }) => ({
-                  headerShown: false, // Add this line to hide the default header
+                  headerShown: false, 
                   tabBarIcon: ({ focused, color, size }) => {
                       let iconName: any;
 
@@ -1229,16 +1303,17 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
       )}
     </Tab.Screen>
 
-                  <Tab.Screen name="Workout">
-                    {(props) => (
-                      <WorkoutTab
-                        {...props}
-                        workoutPlan={workoutPlan}
-                        onGenerateWorkout={() => generateWorkouts(workoutPreferences!)}
-                        onCompleteWorkout={handleWorkoutCompletion}
-                      />
-                    )}
-                  </Tab.Screen>
+    <Tab.Screen name="Workout">
+      {(props) => (
+        <WorkoutTab
+          {...props}
+          workoutPlan={workoutPlan}
+          onGenerateWorkout={(bodyPart) => generateWorkouts(workoutPreferences!, bodyPart)} // Use workoutPreferences here
+          onCompleteWorkout={handleWorkoutCompletion}
+          workoutPreferences={workoutPreferences} 
+        />
+      )}
+    </Tab.Screen>
                   <Tab.Screen name="Nutrition">
                     {(props) => (
                       <NutritionTab
@@ -2217,6 +2292,24 @@ const styles = StyleSheet.create({
   },
   settingsButton: {
     padding: 10,
+  },
+  bodyPartOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#333',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  bodyPartOptionText: {
+    fontSize: 18,
+    color: '#fff',
   },
 });
 
