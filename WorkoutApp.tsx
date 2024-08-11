@@ -45,7 +45,7 @@ import AGiXTService, {
   SocialChallenge,
   ProgressReport,
   BodyMeasurements
-} from './AGiXTService'; // Make sure to replace with your actual AGiXTService file
+} from './AGiXTService'; 
 
 const { width, height } = Dimensions.get('window');
 const Tab = createBottomTabNavigator();
@@ -81,7 +81,7 @@ interface WorkoutTabProps {
   workoutPlan: WorkoutPlanResponse[];
   onGenerateWorkout: (bodyPart: string | null) => void;
   onCompleteWorkout: (difficulty: 'easy' | 'just right' | 'hard') => Promise<void>;
-  workoutPreferences: WorkoutPreferences | null; // Add this line
+  workoutPreferences: WorkoutPreferences | null;
 }
 
 interface NutritionTabProps {
@@ -206,7 +206,7 @@ const AchievementsModal: React.FC<{ visible: boolean; onClose: () => void; userP
 
 const WelcomeScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [displayText, setDisplayText] = useState('');
-  const [settingsModalVisible, setSettingsModalVisible] = useState(true); // Show modal on component mount
+  const [settingsModalVisible, setSettingsModalVisible] = useState(true); 
   const [apiKey, setApiKey] = useState('');
   const [apiUri, setApiUri] = useState('');
 
@@ -236,7 +236,6 @@ const WelcomeScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
       await AsyncStorage.setItem('apiKey', apiKey);
       await AsyncStorage.setItem('apiUri', apiUri);
 
-      // After saving settings, navigate to the next screen
       navigation.navigate('WorkoutSelection');
       setSettingsModalVisible(false);
     } catch (error) {
@@ -248,7 +247,6 @@ const WelcomeScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     <View style={styles.welcomeContainer}>
       <Text style={styles.welcomeTitle}>{displayText}</Text>
 
-      {/* Settings Modal */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -591,7 +589,7 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
             <Text style={styles.progressReportContent}>Body Fat Percentage Change: {progressReport.bodyCompositionChanges.bodyFatPercentageChange}%</Text>
             <Text style={styles.progressReportSubtitle}>Recommendations:</Text>
             {progressReport.recommendations.map((recommendation, index) => (
-              <Text key={index} style={styles.progressReportContent}>• {recommendation}</Text>
+              <Text key={index} style={styles.progressReportContent}>\u2022 {recommendation}</Text>
             ))}
           </View>
         )}
@@ -782,6 +780,8 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
     const [achievementsModalVisible, setAchievementsModalVisible] = useState(false);
     const [selectedBodyPart, setSelectedBodyPart] = useState<string | null>(null);
     const [bodyPartModalVisible, setBodyPartModalVisible] = useState(false);
+    const [isDemoMode, setIsDemoMode] = useState(false);
+
   
     const showAlert = useCallback((title: string, message: string) => {
       setAlertTitle(title);
@@ -793,14 +793,23 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
       const initializeApp = async () => {
         try {
           setLoading(true);
-          // Preconfigure AGiXT settings
-          const defaultApiKey = 'your_default_api_key';
-          const defaultApiUri = 'your_default_api_uri';
-          await AsyncStorage.setItem('apiKey', defaultApiKey);
-          await AsyncStorage.setItem('apiUri', defaultApiUri);
-  
-          const service = new AGiXTService();
-          service.updateSettings(defaultApiUri, defaultApiKey);
+
+          // Get API Key and URI from AsyncStorage
+          const storedApiKey = await AsyncStorage.getItem('apiKey');
+          const storedApiUri = await AsyncStorage.getItem('apiUri');
+
+          if (storedApiKey) {
+            setApiKey(storedApiKey);
+          }
+          if (storedApiUri) {
+            setApiUri(storedApiUri);
+          }
+
+          // Demo Mode Detection (activated when API URI is 'demo_api_uri')
+          setIsDemoMode(apiUri === 'demo');
+
+          const service = new AGiXTService(isDemoMode);
+          service.updateSettings(apiUri, apiKey);
           await service.initializeWorkoutAgent();
           setAgixtService(service);
   
@@ -810,7 +819,7 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
           const storedPoints = await AsyncStorage.getItem('points');
           const storedWorkoutsCompleted = await AsyncStorage.getItem('workoutsCompleted');
   
-          if (storedProfile && storedWorkoutPath) {
+          if (storedProfile && storedWorkoutPath && !isDemoMode) {
             setUserProfile(JSON.parse(storedProfile));
             setWorkoutPath(storedWorkoutPath);
             setIsFirstLaunch(false);
@@ -819,35 +828,83 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
             }
           } else {
             setIsFirstLaunch(true);
+            // Pre-populate user profile with dummy data for demo mode
+            setUserProfile({
+              name: 'Demo User',
+              age: '30',
+              gender: 'Male',
+              feet: '5',
+              inches: '10',
+              weight: '170',
+              goal: 'Muscle Building',
+              fitnessLevel: 'Intermediate',
+              daysPerWeek: '4',
+              bio: 'This is a demo profile.',
+              interests: 'Weightlifting, Running',
+              profileImage: null,
+              level: 1,
+              experiencePoints: 0,
+              currentStreak: 0,
+              longestStreak: 0,
+              lastWorkoutDate: '',
+              coins: 0,
+              unlockedAchievements: [],
+              friends: [],
+            });
+            setWorkoutPath('Muscle Building');
+            // Generate dummy workout plan for demo mode
+            setWorkoutPlan([
+              {
+                conversationName: 'DemoWorkout_1',
+                workoutPlan: {
+                  weeklyPlan: [
+                    {
+                      day: 'Day 1 - Chest & Triceps',
+                      focus: 'Strength', // Make sure to include 'focus'
+                      exercises: [
+                        { name: 'Bench Press', sets: 3, reps: '8-12', rest: '60 seconds' },
+                        { name: 'Incline Dumbbell Press', sets: 3, reps: '8-12', rest: '60 seconds' },
+                        { name: 'Dumbbell Flyes', sets: 3, reps: '10-15', rest: '60 seconds' },
+                        { name: 'Close-Grip Bench Press', sets: 3, reps: '8-12', rest: '60 seconds' },
+                        { name: 'Triceps Pushdowns', sets: 3, reps: '12-15', rest: '60 seconds' },
+                      ],
+                    },
+                  ],
+                  nutritionAdvice: 'Eat plenty of protein and complex carbohydrates.',
+                },
+                completed: false,
+                difficulty: 3,
+              },
+            ]);
           }
   
-          if (storedPoints) setPoints(parseInt(storedPoints));
-          if (storedWorkoutsCompleted) setWorkoutsCompleted(parseInt(storedWorkoutsCompleted));
+          if (storedPoints) setPoints(parseInt(storedPoints, 10)); // Use radix for parseInt
+          if (storedWorkoutsCompleted) setWorkoutsCompleted(parseInt(storedWorkoutsCompleted, 10));
   
           await initializeFeatures();
         } catch (error) {
           console.error('Error initializing app:', error);
-          showAlert          ('Error', 'Failed to initialize the app. Please restart.');
+          showAlert('Error', 'Failed to initialize the app. Please restart.');
         } finally {
           setLoading(false);
         }
       };
   
       initializeApp();
-    }, []);
-  
+    }, [apiUri]); // Add apiUri to the dependency array
+
     const pickImage = async () => {
       let result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
+        aspect: [4, 3],
+        quality: 1,
+      });
 
-    if (!result.canceled) {
-      setUserProfile(prevProfile => ({ ...prevProfile, profileImage: result.assets[0].uri }));
-    }
-  };
+      if (!result.canceled) {
+        setUserProfile(prevProfile => ({ ...prevProfile, profileImage: result.assets[0].uri }));
+      }
+    };
 
   const handleEditProfile = () => {
     setProfileModalVisible(true);
@@ -862,14 +919,9 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
     if (!agixtService) return;
     try {
       setLoading(true);
-      const storedMealPlan = await AsyncStorage.getItem('mealPlan');
-      if (storedMealPlan) {
-        setMealPlan(JSON.parse(storedMealPlan));
-      } else {
-        const newMealPlan = await agixtService.getMealPlan(userProfile);
-        setMealPlan(newMealPlan);
-        await AsyncStorage.setItem('mealPlan', JSON.stringify(newMealPlan));
-      }
+      const newMealPlan = await agixtService.getMealPlan(userProfile);
+      setMealPlan(newMealPlan);
+      await AsyncStorage.setItem('mealPlan', JSON.stringify(newMealPlan));
     } catch (error) {
       console.error('Error loading meal plan:', error);
       showAlert('Error', 'Failed to load meal plan. Please try again.');
@@ -973,7 +1025,7 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
   }, [agixtService, userProfile, checkAchievementsAndUpdateState, showAlert]);
 
   const handleWorkoutPreferencesComplete = async (preferences: WorkoutPreferences) => {
-    setWorkoutPreferences(preferences); // Use setWorkoutPreferences here
+    setWorkoutPreferences(preferences);
     setShowWorkoutSelection(false);
     await generateWorkouts(preferences);
   };
@@ -985,7 +1037,7 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
     }
 
     const weightKg = parseFloat(currentWeight) * 0.453592;
-    const heightM = (parseInt(userProfile.feet) * 12 + parseInt(userProfile.inches)) * 0.0254;
+    const heightM = (parseInt(userProfile.feet, 10) * 12 + parseInt(userProfile.inches, 10)) * 0.0254; // Use radix for parseInt
     const bmi = weightKg / (heightM * heightM);
 
     const newBmiEntry = {
@@ -1063,7 +1115,10 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
       await AsyncStorage.setItem('apiKey', apiKey);
       await AsyncStorage.setItem('apiUri', apiUri);
 
-      const newService = new AGiXTService();
+      // Update demo mode based on the saved API URI
+      setIsDemoMode(apiUri === 'demo_api_uri');
+
+      const newService = new AGiXTService(isDemoMode);
       newService.updateSettings(apiUri, apiKey);
       await newService.initializeWorkoutAgent();
 
@@ -1144,7 +1199,7 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
     } finally {
       setLoading(false);
     }
-  }, [workoutPlan, agixtService, userProfile, generateWorkouts, workoutPreferences, showAlert, workoutsCompleted, achievements, selectedBodyPart]); // Add selectedBodyPart to dependency array
+  }, [workoutPlan, agixtService, userProfile, generateWorkouts, workoutPreferences, showAlert, workoutsCompleted, achievements, selectedBodyPart]); 
 
   const refreshMotivationalQuote = useCallback(async () => {
     if (!agixtService) return;
@@ -1308,7 +1363,11 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
         <WorkoutTab
           {...props}
           workoutPlan={workoutPlan}
-          onGenerateWorkout={(bodyPart) => generateWorkouts(workoutPreferences!, bodyPart)} // Use workoutPreferences here
+          onGenerateWorkout={(bodyPart) => {
+            if (workoutPreferences) { // Check if workoutPreferences is not null
+              generateWorkouts(workoutPreferences, bodyPart);
+            }
+          }}
           onCompleteWorkout={handleWorkoutCompletion}
           workoutPreferences={workoutPreferences} 
         />
@@ -1536,6 +1595,7 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
     </ErrorBoundary>
   );
 };
+
 
 
 // Styles
