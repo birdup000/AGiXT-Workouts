@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { ActivitySummaryRecord } from 'react-native-health-connect'; 
 
 export interface UserProfile {
   name: string;
@@ -988,7 +989,7 @@ class AGiXTService {
             }
           }`;
 
-        const response = await this.chat(       this.agentName, prompt, conversationName);
+        const response = await this.chat(this.agentName, prompt, conversationName);
         const progressReportResponse = this.extractJson(response);
 
         await this.newConversationMessage('assistant', JSON.stringify(progressReportResponse, null, 2), conversationName);
@@ -1098,7 +1099,7 @@ class AGiXTService {
     ];
   }
 
-  public async analyzeWorkouts(workouts: ActivitySummaryRecord[]): Promise<WorkoutAnalysis> { 
+  public async analyzeWorkouts(workouts: ActivitySummaryRecord[]): Promise<WorkoutAnalysis> {
     // 1. Prepare the workout data for AGiXT
     const workoutDataForAgixt = workouts.map(workout => ({
       activityType: workout.activityType,

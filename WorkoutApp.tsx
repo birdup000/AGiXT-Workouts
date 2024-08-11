@@ -49,6 +49,7 @@ import AGiXTService, {
 import HealthConnect, {
   HealthDataType,
   ActivitySummaryRecord,
+  SdkAvailabilityStatus,
 } from 'react-native-health-connect';
 import BackgroundFetch from 'react-native-background-fetch';
 
@@ -119,6 +120,12 @@ interface Achievement {
   description: string;
   icon: string;
   unlocked: boolean;
+}
+
+// Interface for AGiXT Workout Analysis Response
+interface WorkoutAnalysis {
+  recommendation: string;
+  warning: boolean;
 }
 
 // Components
@@ -788,6 +795,8 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
     const [isDemoMode, setIsDemoMode] = useState(false);
     const [workoutAnalysis, setWorkoutAnalysis] = useState<WorkoutAnalysis | null>(null);
     const [recentActivities, setRecentActivities] = useState<ActivitySummaryRecord[]>([]);
+    const [healthConnectAvailable, setHealthConnectAvailable] = useState(false);
+    const [healthConnectPermissionsGranted, setHealthConnectPermissionsGranted] = useState(false);
 
   
     const showAlert = useCallback((title: string, message: string) => {
@@ -1315,9 +1324,8 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
   // Background task to fetch and process activities
   const backgroundTask = async () => {
     try {
-      const permissions = await HealthConnect.getGrantedPermissions();
-      if (!permissions.includes(HealthDataType.ACTIVITY_SUMMARY)) {
-        console.warn('Missing permissions for HealthDataType.ACTIVITY_SUMMARY');
+      if (!healthConnectAvailable || !healthConnectPermissionsGranted) {
+        console.warn('Health Connect is not available or permissions are not granted.');
         return BackgroundFetch.STATUS_RESTRICTED;
       }
 
@@ -1383,6 +1391,76 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
     };
   }, []);
 
+  // Initialize Health Connect and request permissions
+  useEffect(() => {
+    const initHealthConnect = async () => {
+      try {
+        const isAvailable = await HealthConnect.initialize();
+        setHealthConnectAvailable(isAvailable);
+
+        if (isAvailable) {
+          const status = await HealthConnect.getSdkStatus();
+          if (status === SdkAvailabilityStatus.SDK_AVAILABLE) {
+            const grantedPermissions = await HealthConnect.requestPermission([
+              {
+                accessType: 'read',
+                recordType: HealthDataType.ACTIVITY_SUMMARY,
+              },
+            ]);
+            setHealthConnectPermissionsGranted(grantedPermissions.length > 0);
+          } else {
+            // Handle cases where the SDK is not available
+            Alert.alert(
+              'Health Connect Not Available',
+              'The Health Connect SDK is not available on this device. Please make sure you have the latest version of Health Connect installed.',
+            );
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing Health Connect:', error);
+        // Handle errors gracefully
+      }
+    };
+
+    initHealthConnect();
+  }, []);
+
+  // Initialize AGiXTService (replace placeholders with your actual values)
+  useEffect(() => {
+    const initAgixtService = async () => {
+      const storedApiKey = await AsyncStorage.getItem('apiKey'); // Get API key from storage
+      const storedApiUri = await AsyncStorage.getItem('apiUri'); // Get API URI from storage
+
+      if (storedApiKey && storedApiUri) {
+        const service = new AGiXTService(false); // Assuming not in demo mode
+        service.updateSettings(storedApiUri, storedApiKey);
+        setAgixtService(service);
+      }
+    };
+
+    initAgixtService();
+  }, []);
+
+  // Initialize and manage the background task
+  useEffect(() => {
+    const initBackgroundFetch = async () => {
+      await BackgroundFetch.configure(
+        {
+          minimumFetchInterval: 15, // Adjust the interval as needed
+        },
+        backgroundTask,
+      );
+      await BackgroundFetch.registerHeadlessTask(backgroundTask);
+    };
+
+    initBackgroundFetch();
+
+    return () => {
+      BackgroundFetch.stop();
+    };
+  }, [healthConnectAvailable, healthConnectPermissionsGranted]); 
+
+  // *** Example UI for Displaying Recommendations ***
   return (
     <ErrorBoundary>
       <SafeAreaView style={styles.container}>
@@ -1666,801 +1744,822 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
               <TouchableOpacity style={styles.feedbackOption} onPress={() => handleWorkoutCompletion('hard')}>
                 <Text style={styles.feedbackOptionText}>Hard</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setFeedbackModalVisible(false)}>
-                <Text style={styles.modalButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-
-        {/* Achievements Modal */}
-        <AchievementsModal
-          visible={achievementsModalVisible}
-          onClose={() => setAchievementsModalVisible(false)}
-          userProfile={userProfile}
-          achievements={achievements}
-        />
-        
-      </SafeAreaView>
-    </ErrorBoundary>
-  );
-};
-
-
-
-// Styles
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  gradient: {
-    // Stretch the gradient to the bottom
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    padding: 20,
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 10,
-    backgroundColor: '#1a1a1a',
-  },
-  profileImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#FFD700',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFD700',
-  },
-  content: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  tabBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#333',
-    backgroundColor: '#1a1a1a',
-  },
-  tabItem: {
-    alignItems: 'center',
-  },
-  tabText: {
-    color: '#FFD700',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  activeTabText: {
-    color: '#FFA500',
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-  },
-  modalContent: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 10,
-    padding: 20,
-    width: '80%',
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFD700',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  input: {
-    backgroundColor: '#333',
-    borderRadius: 5,
-    padding: 10,
-    marginBottom: 10,
-    color: '#fff',
-  },
-  modalButton: {
-    backgroundColor: '#FFD700',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  modalButtonText: {
-    color: '#000',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  cancelButton: {
-    backgroundColor: '#FF6347',
-    marginTop: 10,
-  },
-  imagePicker: {
-    backgroundColor: '#333',
-    borderRadius: 10,
-    padding: 20,
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  imagePickerText: {
-    color: '#FFD700',
-    fontSize: 16,
-  },
-  inputScrollView: {
-    maxHeight: 300,
-  },
-  errorText: {
-    color: '#FF6347',
-    fontSize: 12,
-    marginBottom: 5,
-  },
-  workoutCard: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 15,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-  startButton: {
-    backgroundColor: '#FFD700',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 15,
-    shadowColor: '#FFA500',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  quoteCard: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 15,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-  optionButton: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#333',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  selectedOption: {
-    backgroundColor: '#4a4a4a',
-  },
-  generateWorkoutButton: {
-    backgroundColor: '#FFD700',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 20,
-    shadowColor: '#FFA500',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  completeWorkoutButton: {
-    backgroundColor: '#FFD700',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  generateMealPlanButton: {
-    backgroundColor: '#FFD700',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-  },
-  calculateBMIButton: {
-    backgroundColor: '#FFD700',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  generateReportButton: {
-    backgroundColor: '#FFD700',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  refreshChallengesButton: {
-    backgroundColor: '#FFD700',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  feedbackOption: {
-    backgroundColor: '#333',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  levelProgressContainer: {
-    marginTop: 10,
-    alignItems: 'center',
-  },
-  levelText: {
-    color: '#FFD700',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  progressBar: {
-    width: '100%',
-    height: 10,
-    backgroundColor: '#333',
-    borderRadius: 5,
-    marginTop: 5,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#FFD700',
-  },
-  xpText: {
-    color: '#fff',
-    fontSize: 14,
-    marginTop: 5,
-  },
-  achievementItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#333',
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 10,
-  },
-  achievementIcon: {
-    width: 40,
-    height: 40,
-    marginRight: 10,
-  },
-  achievementInfo: {
-    flex: 1,
-  },
-  achievementName: {
-    color: '#FFD700',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  achievementDescription: {
-    color: '#fff',
-    fontSize: 14,
-  },
-  closeButton: {
-    backgroundColor: '#FFD700',
-    padding: 10,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  closeButtonText: {
-    color: '#000',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  dashboardContainer: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  topSection: {
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  userName: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFD700',
-    marginTop: 10,
-  },
-  points: {
-    fontSize: 18,
-    color: '#FFD700',
-    marginTop: 5,
-  },
-  cardTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFD700',
-    marginBottom: 10,
-  },
-  workoutName: {
-    fontSize: 18,
-    color: '#fff',
-    marginBottom: 15,
-  },
-  startButtonText: {
-    color: '#000',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  quoteText: {
-    color: '#FFD700',
-    fontSize: 16,
-    fontStyle: 'italic',
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  refreshButton: {
-    padding: 10,
-    alignSelf: 'center',
-  },
-  animation: {
-    width: 25, // or 40 for an even smaller animation
-    height: 25, // or 40 for an even smaller animation
-    alignSelf: 'center',
-  },
-  tabContent: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: '#000',
-  },
-  tabTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFD700',
-    marginBottom: 20,
-  },
-  workoutTabContent: {
-    flexGrow: 1,
-    padding: 20,
-    backgroundColor: '#000',
-  },
-  exerciseItem: {
-    marginBottom: 10,
-  },
-  exerciseName: {
-    color: '#FFD700',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 5,
-  },
-  exerciseDetail: {
-    color: '#fff',
-    fontSize: 14,
-  },
-  completeWorkoutButtonText: {
-    color: '#000',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  generateWorkoutButtonText: {
-    color: '#000',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  mealPlanContainer: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 20,
-  },
-  mealTitle: {
-    color: '#FFD700',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 5,
-  },
-  mealContent: {
-    color: '#fff',
-    marginBottom: 10,
-  },
-  updateMealPlanButton: {
-    backgroundColor: '#FFD700',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  updateMealPlanButtonText: {
-    color: '#000',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  generateMealPlanButtonText: {
-    color: '#000',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  bmiChartContainer: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 20,
-  },
-  chart: {
-    marginVertical: 8,
-    borderRadius: 16,
-  },
-  calculateBMIButtonText: {
-    color: '#000',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  generateReportButtonText: {
-    color: '#000',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  progressReportContainer: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 20,
-  },
-  progressReportContent: {
-    color: '#fff',
-  },
-  challengeItem: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 15,
-  },
-  challengeName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFD700',
-    marginBottom: 5,
-  },
-  challengeDescription: {
-    color: '#fff',
-    marginBottom: 10,
-  },
-  challengeDuration: {
-    color: '#ccc',
-  },
-  challengeDifficulty: {
-    color: '#ccc',
-    marginBottom: 10,
-  },
-  challengeButton: {
-    backgroundColor: '#FFD700',
-    padding: 10,
-    borderRadius: 5,
-    alignItems: 'center',
-  },
-  challengeCompleted: {
-    backgroundColor: '#4CAF50',
-  },
-  challengeButtonText: {
-    color: '#000',
-    fontWeight: 'bold',
-  },
-  refreshChallengesButtonText: {
-    color: '#000',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  alertModalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  alertModalContent: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 10,
-    padding: 20,
-    alignItems: 'center',
-    width: '80%',
-  },
-  alertModalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFD700',
-    marginBottom: 10,
-  },
-  alertModalMessage: {
-    color: '#fff',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  alertModalButton: {
-    backgroundColor: '#FFD700',
-    padding: 10,
-    borderRadius: 5,
-    width: '100%',
-    alignItems: 'center',
-  },
-  alertModalButtonText: {
-    color: '#000',
-    fontWeight: 'bold',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#000',
-  },
-  modalText: {
-    color: '#fff',
-    fontSize: 16,
-    marginBottom: 15,
-  },
-  feedbackOptionText: {
-    color: '#FFD700',
-    fontSize: 16,
-  },
-  workoutList: {
-    maxHeight: 200,
-    marginTop: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFD700',
-    marginBottom: 15,
-  },
-  progressReportSubtitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFD700',
-    marginTop: 10,
-    marginBottom: 5,
-  },
-  challengeDates: {
-    color: '#ccc',
-    marginBottom: 10,
-  },
-  joinButton: {
-    backgroundColor: '#FFD700',
-    padding: 10,
-    borderRadius: 5,
-    alignItems: 'center',
-  },
-  joinButtonText: {
-    color: '#000',
-    fontWeight: 'bold',
-  },
-  createChallengeButton: {
-    backgroundColor: '#FFD700',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  createChallengeButtonText: {
-    color: '#000',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  welcomeContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#000',
-  },
-  welcomeTitle: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#FFD700',
-    marginBottom: 30,
-    textAlign: 'center',
-  },
-  welcomeAnimation: {
-    width: 200,
-    height: 200,
-  },
-  getStartedButton: {
-    backgroundColor: '#FFD700',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 40,
-    shadowColor: '#FFA500',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  getStartedButtonText: {
-    color: '#000',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  questionContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  questionText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFD700',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  optionText: {
-    fontSize: 18,
-    color: '#fff',
-  },
-  workoutListHeader: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFD700',
-    marginTop: 20,
-    marginBottom: 10,
-  },
-  workoutItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#333',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  incompatibleWorkout: {
-    opacity: 0.5,
-  },
-  streakContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  streakText: {
-    color: '#FFD700',
-    fontSize: 16,
-    marginLeft: 5,
-  },
-  coinsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  coinsText: {
-    color: '#FFD700',
-    fontSize: 16,
-    marginLeft: 5,
-  },
-  achievementsButton: {
-    backgroundColor: '#4CAF50',
-    padding: 10,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  achievementsButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  socialChallengeItem: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 15,
-  },
-  socialChallengeName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFD700',
-    marginBottom: 5,
-  },
-  socialChallengeDescription: {
-    color: '#fff',
-    marginBottom: 10,
-  },
-  socialChallengeDates: {
-    color: '#ccc',
-    marginBottom: 10,
-  },
-  leaderboardContainer: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 10,
-    padding: 15,
-    marginTop: 20,
-  },
-  leaderboardTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFD700',
-    marginBottom: 10,
-  },
-  leaderboardItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 5,
-  },
-  leaderboardRank: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-    width: 30,
-  },
-  leaderboardName: {
-    color: '#fff',
-    fontSize: 16,
-    flex: 1,
-  },
-  leaderboardScore: {
-    color: '#FFD700',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  dashboardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  settingsButton: {
-    padding: 10,
-  },
-  bodyPartOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#333',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  bodyPartOptionText: {
-    fontSize: 18,
-    color: '#fff',
-  },
-});
-
-export default WorkoutApp;
+              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setFeedbackModalVisible
+                           (false)}>
+                           <Text style={styles.modalButtonText}>Cancel</Text>
+                         </TouchableOpacity>
+                       </View>
+                     </View>
+                   </Modal>
+           
+                   {/* Achievements Modal */}
+                   <AchievementsModal
+                     visible={achievementsModalVisible}
+                     onClose={() => setAchievementsModalVisible(false)}
+                     userProfile={userProfile}
+                     achievements={achievements}
+                   />
+           
+                   {/* Recommendation UI */}
+                   <View style={styles.recommendationContainer}>
+                     {workoutAnalysis && (
+                       <Text style={styles.recommendationText}>
+                         {workoutAnalysis.recommendation}
+                       </Text>
+                     )}
+                   </View>
+                   
+                 </SafeAreaView>
+               </ErrorBoundary>
+             );
+           };
+           
+           
+           
+           // Styles
+           const styles = StyleSheet.create({
+             container: {
+               flex: 1,
+               backgroundColor: '#000',
+             },
+             gradient: {
+               // Stretch the gradient to the bottom
+               position: 'absolute',
+               top: 0,
+               left: 0,
+               right: 0,
+               bottom: 0,
+               padding: 20,
+               flex: 1,
+             },
+             header: {
+               flexDirection: 'row',
+               justifyContent: 'space-between',
+               alignItems: 'center',
+               paddingHorizontal: 20,
+               paddingTop: 20,
+               paddingBottom: 10,
+               backgroundColor: '#1a1a1a',
+             },
+             profileImage: {
+               width: 40,
+               height: 40,
+               borderRadius: 20,
+               borderWidth: 2,
+               borderColor: '#FFD700',
+             },
+             headerTitle: {
+               fontSize: 24,
+               fontWeight: 'bold',
+               color: '#FFD700',
+             },
+             content: {
+               flex: 1,
+               backgroundColor: '#000',
+             },
+             tabBar: {
+               flexDirection: 'row',
+               justifyContent: 'space-around',
+               paddingVertical: 10,
+               borderTopWidth: 1,
+               borderTopColor: '#333',
+               backgroundColor: '#1a1a1a',
+             },
+             tabItem: {
+               alignItems: 'center',
+             },
+             tabText: {
+               color: '#FFD700',
+               fontSize: 12,
+               marginTop: 4,
+             },
+             activeTabText: {
+               color: '#FFA500',
+             },
+             modalContainer: {
+               flex: 1,
+               justifyContent: 'center',
+               alignItems: 'center',
+               backgroundColor: 'rgba(0, 0, 0, 0.9)',
+             },
+             modalContent: {
+               backgroundColor: '#1a1a1a',
+               borderRadius: 10,
+               padding: 20,
+               width: '80%',
+               maxHeight: '80%',
+             },
+             modalHeader: {
+               fontSize: 24,
+               fontWeight: 'bold',
+               color: '#FFD700',
+               marginBottom: 20,
+               textAlign: 'center',
+             },
+             input: {
+               backgroundColor: '#333',
+               borderRadius: 5,
+               padding: 10,
+               marginBottom: 10,
+               color: '#fff',
+             },
+             modalButton: {
+               backgroundColor: '#FFD700',
+               padding: 15,
+               borderRadius: 5,
+               alignItems: 'center',
+               marginTop: 20,
+             },
+             modalButtonText: {
+               color: '#000',
+               fontWeight: 'bold',
+               fontSize: 16,
+             },
+             cancelButton: {
+               backgroundColor: '#FF6347',
+               marginTop: 10,
+             },
+             imagePicker: {
+               backgroundColor: '#333',
+               borderRadius: 10,
+               padding: 20,
+               alignItems: 'center',
+               marginBottom: 20,
+             },
+             imagePickerText: {
+               color: '#FFD700',
+               fontSize: 16,
+             },
+             inputScrollView: {
+               maxHeight: 300,
+             },
+             errorText: {
+               color: '#FF6347',
+               fontSize: 12,
+               marginBottom: 5,
+             },
+             workoutCard: {
+               backgroundColor: '#1a1a1a',
+               borderRadius: 15,
+               padding: 20,
+               marginBottom: 20,
+               shadowColor: '#000',
+               shadowOffset: { width: 0, height: 2 },
+               shadowOpacity: 0.3,
+               shadowRadius: 5,
+               elevation: 5,
+             },
+             startButton: {
+               backgroundColor: '#FFD700',
+               padding: 15,
+               borderRadius: 10,
+               alignItems: 'center',
+               marginTop: 15,
+               shadowColor: '#FFA500',
+               shadowOffset: { width: 0, height: 2 },
+               shadowOpacity: 0.5,
+               shadowRadius: 3,
+               elevation: 3,
+             },
+             quoteCard: {
+               backgroundColor: '#1a1a1a',
+               borderRadius: 15,
+               padding: 20,
+               marginBottom: 20,
+               shadowColor: '#000',
+               shadowOffset: { width: 0, height: 2 },
+               shadowOpacity: 0.3,
+               shadowRadius: 5,
+               elevation: 5,
+             },
+             optionButton: {
+               flexDirection: 'row',
+               justifyContent: 'space-between',
+               alignItems: 'center',
+               backgroundColor: '#333',
+               padding: 15,
+               borderRadius: 10,
+               marginBottom: 10,
+               shadowColor: '#000',
+               shadowOffset: { width: 0, height: 2 },
+               shadowOpacity: 0.2,
+               shadowRadius: 3,
+               elevation: 3,
+             },
+             selectedOption: {
+               backgroundColor: '#4a4a4a',
+             },
+             generateWorkoutButton: {
+               backgroundColor: '#FFD700',
+               padding: 15,
+               borderRadius: 10,
+               alignItems: 'center',
+               marginTop: 20,
+               shadowColor: '#FFA500',
+               shadowOffset: { width: 0, height: 2 },
+               shadowOpacity: 0.5,
+               shadowRadius: 3,
+               elevation: 3,
+             },
+             completeWorkoutButton: {
+               backgroundColor: '#FFD700',
+               padding: 15,
+               borderRadius: 5,
+               alignItems: 'center',
+               marginTop: 20,
+             },
+             generateMealPlanButton: {
+               backgroundColor: '#FFD700',
+               padding: 15,
+               borderRadius: 5,
+               alignItems: 'center',
+             },
+             calculateBMIButton: {
+               backgroundColor: '#FFD700',
+               padding: 15,
+               borderRadius: 5,
+               alignItems: 'center',
+               marginBottom: 20,
+             },
+             generateReportButton: {
+               backgroundColor: '#FFD700',
+               padding: 15,
+               borderRadius: 5,
+               alignItems: 'center',
+               marginBottom: 20,
+             },
+             refreshChallengesButton: {
+               backgroundColor: '#FFD700',
+               padding: 15,
+               borderRadius: 5,
+               alignItems: 'center',
+               marginTop: 20,
+             },
+             feedbackOption: {
+               backgroundColor: '#333',
+               padding: 15,
+               borderRadius: 5,
+               alignItems: 'center',
+               marginBottom: 10,
+               shadowColor: '#000',
+               shadowOffset: { width: 0, height: 2 },
+               shadowOpacity: 0.2,
+               shadowRadius: 3,
+               elevation: 3,
+             },
+             levelProgressContainer: {
+               marginTop: 10,
+               alignItems: 'center',
+             },
+             levelText: {
+               color: '#FFD700',
+               fontSize: 18,
+               fontWeight: 'bold',
+             },
+             progressBar: {
+               width: '100%',
+               height: 10,
+               backgroundColor: '#333',
+               borderRadius: 5,
+               marginTop: 5,
+               overflow: 'hidden',
+             },
+             progressFill: {
+               height: '100%',
+               backgroundColor: '#FFD700',
+             },
+             xpText: {
+               color: '#fff',
+               fontSize: 14,
+               marginTop: 5,
+             },
+             achievementItem: {
+               flexDirection: 'row',
+               alignItems: 'center',
+               backgroundColor: '#333',
+               padding: 10,
+               borderRadius: 5,
+               marginBottom: 10,
+             },
+             achievementIcon: {
+               width: 40,
+               height: 40,
+               marginRight: 10,
+             },
+             achievementInfo: {
+               flex: 1,
+             },
+             achievementName: {
+               color: '#FFD700',
+               fontSize: 16,
+               fontWeight: 'bold',
+             },
+             achievementDescription: {
+               color: '#fff',
+               fontSize: 14,
+             },
+             closeButton: {
+               backgroundColor: '#FFD700',
+               padding: 10,
+               borderRadius: 5,
+               alignItems: 'center',
+               marginTop: 20,
+             },
+             closeButtonText: {
+               color: '#000',
+               fontSize: 16,
+               fontWeight: 'bold',
+             },
+             dashboardContainer: {
+               flex: 1,
+               backgroundColor: '#000',
+             },
+             topSection: {
+               alignItems: 'center',
+               marginBottom: 30,
+             },
+             userName: {
+               fontSize: 28,
+               fontWeight: 'bold',
+               color: '#FFD700',
+               marginTop: 10,
+             },
+             points: {
+               fontSize: 18,
+               color: '#FFD700',
+               marginTop: 5,
+             },
+             cardTitle: {
+               fontSize: 20,
+               fontWeight: 'bold',
+               color: '#FFD700',
+               marginBottom: 10,
+             },
+             workoutName: {
+               fontSize: 18,
+               color: '#fff',
+               marginBottom: 15,
+             },
+             startButtonText: {
+               color: '#000',
+               fontSize: 16,
+               fontWeight: 'bold',
+             },
+             quoteText: {
+               color: '#FFD700',
+               fontSize: 16,
+               fontStyle: 'italic',
+               textAlign: 'center',
+               marginBottom: 10,
+             },
+             refreshButton: {
+               padding: 10,
+               alignSelf: 'center',
+             },
+             animation: {
+               width: 25, // or 40 for an even smaller animation
+               height: 25, // or 40 for an even smaller animation
+               alignSelf: 'center',
+             },
+             tabContent: {
+               flex: 1,
+               padding: 20,
+               backgroundColor: '#000',
+             },
+             tabTitle: {
+               fontSize: 24,
+               fontWeight: 'bold',
+               color: '#FFD700',
+               marginBottom: 20,
+             },
+             workoutTabContent: {
+               flexGrow: 1,
+               padding: 20,
+               backgroundColor: '#000',
+             },
+             exerciseItem: {
+               marginBottom: 10,
+             },
+             exerciseName: {
+               color: '#FFD700',
+               fontSize: 18,
+               fontWeight: 'bold',
+               marginBottom: 5,
+             },
+             exerciseDetail: {
+               color: '#fff',
+               fontSize: 14,
+             },
+             completeWorkoutButtonText: {
+               color: '#000',
+               fontWeight: 'bold',
+               fontSize: 16,
+             },
+             generateWorkoutButtonText: {
+               color: '#000',
+               fontWeight: 'bold',
+               fontSize: 16,
+             },
+             mealPlanContainer: {
+               backgroundColor: '#1a1a1a',
+               borderRadius: 10,
+               padding: 15,
+               marginBottom: 20,
+             },
+             mealTitle: {
+               color: '#FFD700',
+               fontSize: 18,
+               fontWeight: 'bold',
+               marginBottom: 5,
+             },
+             mealContent: {
+               color: '#fff',
+               marginBottom: 10,
+             },
+             updateMealPlanButton: {
+               backgroundColor: '#FFD700',
+               padding: 15,
+               borderRadius: 5,
+               alignItems: 'center',
+               marginTop: 20,
+             },
+             updateMealPlanButtonText: {
+               color: '#000',
+               fontWeight: 'bold',
+               fontSize: 16,
+             },
+             generateMealPlanButtonText: {
+               color: '#000',
+               fontWeight: 'bold',
+               fontSize: 16,
+             },
+             bmiChartContainer: {
+               backgroundColor: '#1a1a1a',
+               borderRadius: 10,
+               padding: 15,
+               marginBottom: 20,
+             },
+             chart: {
+               marginVertical: 8,
+               borderRadius: 16,
+             },
+             calculateBMIButtonText: {
+               color: '#000',
+               fontWeight: 'bold',
+               fontSize: 16,
+             },
+             generateReportButtonText: {
+               color: '#000',
+               fontWeight: 'bold',
+               fontSize: 16,
+             },
+             progressReportContainer: {
+               backgroundColor: '#1a1a1a',
+               borderRadius: 10,
+               padding: 15,
+               marginBottom: 20,
+             },
+             progressReportContent: {
+               color: '#fff',
+             },
+             challengeItem: {
+               backgroundColor: '#1a1a1a',
+               borderRadius: 10,
+               padding: 15,
+               marginBottom: 15,
+             },
+             challengeName: {
+               fontSize: 18,
+               fontWeight: 'bold',
+               color: '#FFD700',
+               marginBottom: 5,
+             },
+             challengeDescription: {
+               color: '#fff',
+               marginBottom: 10,
+             },
+             challengeDuration: {
+               color: '#ccc',
+             },
+             challengeDifficulty: {
+               color: '#ccc',
+               marginBottom: 10,
+             },
+             challengeButton: {
+               backgroundColor: '#FFD700',
+               padding: 10,
+               borderRadius: 5,
+               alignItems: 'center',
+             },
+             challengeCompleted: {
+               backgroundColor: '#4CAF50',
+             },
+             challengeButtonText: {
+               color: '#000',
+               fontWeight: 'bold',
+             },
+             refreshChallengesButtonText: {
+               color: '#000',
+               fontWeight: 'bold',
+               fontSize: 16,
+             },
+             loadingOverlay: {
+               ...StyleSheet.absoluteFillObject,
+               backgroundColor: 'rgba(0, 0, 0, 0.7)',
+               justifyContent: 'center',
+               alignItems: 'center',
+             },
+             alertModalContainer: {
+               flex: 1,
+               justifyContent: 'center',
+               alignItems: 'center',
+               backgroundColor: 'rgba(0, 0, 0, 0.5)',
+             },
+             alertModalContent: {
+               backgroundColor: '#1a1a1a',
+               borderRadius: 10,
+               padding: 20,
+               alignItems: 'center',
+               width: '80%',
+             },
+             alertModalTitle: {
+               fontSize: 20,
+               fontWeight: 'bold',
+               color: '#FFD700',
+               marginBottom: 10,
+             },
+             alertModalMessage: {
+               color: '#fff',
+               textAlign: 'center',
+               marginBottom: 20,
+             },
+             alertModalButton: {
+               backgroundColor: '#FFD700',
+               padding: 10,
+               borderRadius: 5,
+               width: '100%',
+               alignItems: 'center',
+             },
+             alertModalButtonText: {
+               color: '#000',
+               fontWeight: 'bold',
+             },
+             errorContainer: {
+               flex: 1,
+               justifyContent: 'center',
+               alignItems: 'center',
+               backgroundColor: '#000',
+             },
+             modalText: {
+               color: '#fff',
+               fontSize: 16,
+               marginBottom: 15,
+             },
+             feedbackOptionText: {
+               color: '#FFD700',
+               fontSize: 16,
+             },
+             workoutList: {
+               maxHeight: 200,
+               marginTop: 20,
+             },
+             sectionTitle: {
+               fontSize: 20,
+               fontWeight: 'bold',
+               color: '#FFD700',
+               marginBottom: 15,
+             },
+             progressReportSubtitle: {
+               fontSize: 18,
+               fontWeight: 'bold',
+               color: '#FFD700',
+               marginTop: 10,
+               marginBottom: 5,
+             },
+             challengeDates: {
+               color: '#ccc',
+               marginBottom: 10,
+             },
+             joinButton: {
+               backgroundColor: '#FFD700',
+               padding: 10,
+               borderRadius: 5,
+               alignItems: 'center',
+             },
+             joinButtonText: {
+               color: '#000',
+               fontWeight: 'bold',
+             },
+             createChallengeButton: {
+               backgroundColor: '#FFD700',
+               padding: 15,
+               borderRadius: 5,
+               alignItems: 'center',
+               marginTop: 20,
+             },
+             createChallengeButtonText: {
+               color: '#000',
+               fontWeight: 'bold',
+               fontSize: 16,
+             },
+             welcomeContainer: {
+               flex: 1,
+               justifyContent: 'center',
+               alignItems: 'center',
+               backgroundColor: '#000',
+             },
+             welcomeTitle: {
+               fontSize: 36,
+               fontWeight: 'bold',
+               color: '#FFD700',
+               marginBottom: 30,
+               textAlign: 'center',
+             },
+             welcomeAnimation: {
+               width: 200,
+               height: 200,
+             },
+             getStartedButton: {
+               backgroundColor: '#FFD700',
+               padding: 15,
+               borderRadius: 10,
+               alignItems: 'center',
+               marginTop: 40,
+               shadowColor: '#FFA500',
+               shadowOffset: { width: 0, height: 2 },
+               shadowOpacity: 0.5,
+               shadowRadius: 3,
+               elevation: 3,
+             },
+             getStartedButtonText: {
+               color: '#000',
+               fontSize: 18,
+               fontWeight: 'bold',
+             },
+             questionContainer: {
+               flex: 1,
+               justifyContent: 'center',
+               alignItems: 'center',
+               paddingHorizontal: 20,
+             },
+             questionText: {
+               fontSize: 24,
+               fontWeight: 'bold',
+               color: '#FFD700',
+               marginBottom: 20,
+               textAlign: 'center',
+             },
+             optionText: {
+               fontSize: 18,
+               color: '#fff',
+             },
+             workoutListHeader: {
+               fontSize: 20,
+               fontWeight: 'bold',
+               color: '#FFD700',
+               marginTop: 20,
+               marginBottom: 10,
+             },
+             workoutItem: {
+               flexDirection: 'row',
+               justifyContent: 'space-between',
+               alignItems: 'center',
+               backgroundColor: '#333',
+               padding: 15,
+               borderRadius: 10,
+               marginBottom: 10,
+               shadowColor: '#000',
+               shadowOffset: { width: 0, height: 2 },
+               shadowOpacity: 0.2,
+               shadowRadius: 3,
+               elevation: 3,
+             },
+             incompatibleWorkout: {
+               opacity: 0.5,
+             },
+             streakContainer: {
+               flexDirection: 'row',
+               alignItems: 'center',
+               marginTop: 10,
+             },
+             streakText: {
+               color: '#FFD700',
+               fontSize: 16,
+               marginLeft: 5,
+             },
+             coinsContainer: {
+               flexDirection: 'row',
+               alignItems: 'center',
+               marginTop: 10,
+             },
+             coinsText: {
+               color: '#FFD700',
+               fontSize: 16,
+               marginLeft: 5,
+             },
+             achievementsButton: {
+               backgroundColor: '#4CAF50',
+               padding: 10,
+               borderRadius: 5,
+               alignItems: 'center',
+               marginTop: 10,
+             },
+             achievementsButtonText: {
+               color: '#fff',
+               fontWeight: 'bold',
+             },
+             socialChallengeItem: {
+               backgroundColor: '#1a1a1a',
+               borderRadius: 10,
+               padding: 15,
+               marginBottom: 15,
+             },
+             socialChallengeName: {
+               fontSize: 18,
+               fontWeight: 'bold',
+               color: '#FFD700',
+               marginBottom: 5,
+             },
+             socialChallengeDescription: {
+               color: '#fff',
+               marginBottom: 10,
+             },
+             socialChallengeDates: {
+               color: '#ccc',
+               marginBottom: 10,
+             },
+             leaderboardContainer: {
+               backgroundColor: '#1a1a1a',
+               borderRadius: 10,
+               padding: 15,
+               marginTop: 20,
+             },
+             leaderboardTitle: {
+               fontSize: 20,
+               fontWeight: 'bold',
+               color: '#FFD700',
+               marginBottom: 10,
+             },
+             leaderboardItem: {
+               flexDirection: 'row',
+               justifyContent: 'space-between',
+               alignItems: 'center',
+               paddingVertical: 5,
+             },
+             leaderboardRank: {
+               color: '#fff',
+               fontSize: 16,
+               fontWeight: 'bold',
+               width: 30,
+             },
+             leaderboardName: {
+               color: '#fff',
+               fontSize: 16,
+               flex: 1,
+             },
+             leaderboardScore: {
+               color: '#FFD700',
+               fontSize: 16,
+               fontWeight: 'bold',
+             },
+             dashboardHeader: {
+               flexDirection: 'row',
+               justifyContent: 'space-between',
+               alignItems: 'center',
+               marginBottom: 20,
+             },
+             settingsButton: {
+               padding: 10,
+             },
+             bodyPartOption: {
+               flexDirection: 'row',
+               justifyContent: 'space-between',
+               alignItems: 'center',
+               backgroundColor: '#333',
+               padding: 15,
+               borderRadius: 10,
+               marginBottom: 10,
+               shadowColor: '#000',
+               shadowOffset: { width: 0, height: 2 },
+               shadowOpacity: 0.2,
+               shadowRadius: 3,
+               elevation: 3,
+             },
+             bodyPartOptionText: {
+               fontSize: 18,
+               color: '#fff',
+             },
+             // Styles for the recommendation UI
+             recommendationContainer: {
+               padding: 20,
+               backgroundColor: '#1a1a1a', // Or your preferred background color
+               borderRadius: 10,
+               marginBottom: 20,
+             },
+             recommendationText: {
+               color: '#FFD700', // Or your preferred text color
+               fontSize: 16,
+             },
+           });
+           
+           export default WorkoutApp;

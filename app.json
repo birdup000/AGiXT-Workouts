@@ -22,6 +22,10 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "react-native-health-connect",
+      "react-native-background-fetch"
+    ]
   }
 }
