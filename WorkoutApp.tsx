@@ -50,6 +50,7 @@ import HealthConnect, {
   HealthDataType,
   ActivitySummaryRecord,
   SdkAvailabilityStatus,
+  ReadRecordsOptions,
 } from 'react-native-health-connect';
 import BackgroundFetch from 'react-native-background-fetch';
 
@@ -1332,17 +1333,19 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
       const now = new Date();
       const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000); // 1 hour ago
 
+      const options: ReadRecordsOptions = {
+        startDate: oneHourAgo,
+        endDate: now,
+      };
+
       const newActivities = await HealthConnect.readRecords(
         HealthDataType.ACTIVITY_SUMMARY,
-        {
-          startDate: oneHourAgo,
-          endDate: now,
-        },
+        options
       );
 
       setRecentActivities(prevActivities => {
         // Combine new activities with existing ones (avoid duplicates)
-        const allActivities = [...prevActivities, ...newActivities];
+        const allActivities = [...prevActivities, ...newActivities.records];
         const uniqueActivities = allActivities.filter(
           (activity, index, self) =>
             index === self.findIndex((a) => a.uuid === activity.uuid),
@@ -1350,7 +1353,7 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
         return uniqueActivities;
       });
 
-      const workouts = filterWorkouts(newActivities);
+      const workouts = filterWorkouts(newActivities.records);
 
       if (workouts.length > 0 && agixtService) { 
         try {
