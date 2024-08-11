@@ -46,6 +46,11 @@ import AGiXTService, {
   ProgressReport,
   BodyMeasurements
 } from './AGiXTService'; 
+import HealthConnect, {
+  HealthDataType,
+  ActivitySummaryRecord,
+} from 'react-native-health-connect';
+import BackgroundFetch from 'react-native-background-fetch';
 
 const { width, height } = Dimensions.get('window');
 const Tab = createBottomTabNavigator();
@@ -781,6 +786,8 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
     const [selectedBodyPart, setSelectedBodyPart] = useState<string | null>(null);
     const [bodyPartModalVisible, setBodyPartModalVisible] = useState(false);
     const [isDemoMode, setIsDemoMode] = useState(false);
+    const [workoutAnalysis, setWorkoutAnalysis] = useState<WorkoutAnalysis | null>(null);
+    const [recentActivities, setRecentActivities] = useState<ActivitySummaryRecord[]>([]);
 
   
     const showAlert = useCallback((title: string, message: string) => {
@@ -1292,6 +1299,89 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
       setLoading(false);
     }
   }, [agixtService, userProfile, showAlert]);
+
+  // Function to filter workout-like activities
+  const filterWorkouts = (activities: ActivitySummaryRecord[]): ActivitySummaryRecord[] => {
+    const workoutActivities = activities.filter(activity => {
+      // Customize your workout filtering logic here
+      return (
+        activity.activityType === HealthDataType.WALKING && 
+        activity.duration > 300000 // 5 minutes in milliseconds
+      );
+    });
+    return workoutActivities;
+  };
+
+  // Background task to fetch and process activities
+  const backgroundTask = async () => {
+    try {
+      const permissions = await HealthConnect.getGrantedPermissions();
+      if (!permissions.includes(HealthDataType.ACTIVITY_SUMMARY)) {
+        console.warn('Missing permissions for HealthDataType.ACTIVITY_SUMMARY');
+        return BackgroundFetch.STATUS_RESTRICTED;
+      }
+
+      const now = new Date();
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000); // 1 hour ago
+
+      const newActivities = await HealthConnect.readRecords(
+        HealthDataType.ACTIVITY_SUMMARY,
+        {
+          startDate: oneHourAgo,
+          endDate: now,
+        },
+      );
+
+      setRecentActivities(prevActivities => {
+        // Combine new activities with existing ones (avoid duplicates)
+        const allActivities = [...prevActivities, ...newActivities];
+        const uniqueActivities = allActivities.filter(
+          (activity, index, self) =>
+            index === self.findIndex((a) => a.uuid === activity.uuid),
+        );
+        return uniqueActivities;
+      });
+
+      const workouts = filterWorkouts(newActivities);
+
+      if (workouts.length > 0 && agixtService) { 
+        try {
+          const analysis = await agixtService.analyzeWorkouts(workouts);
+          setWorkoutAnalysis(analysis);
+
+          if (analysis.warning) {
+            showAlert('Workout Recommendation', analysis.recommendation);
+          }
+        } catch (error) {
+          console.error('Error analyzing workouts:', error);
+          // Additional error handling (e.g., display a user-friendly message)
+        }
+      }
+
+      return BackgroundFetch.STATUS_AVAILABLE;
+    } catch (error) {
+      console.error('Error in background task:', error);
+      return BackgroundFetch.STATUS_FAILED;
+    }
+  };
+
+  useEffect(() => {
+    const initBackgroundFetch = async () => {
+      await BackgroundFetch.configure(
+        {
+          minimumFetchInterval: 15, // Adjust as needed
+        },
+        backgroundTask,
+      );
+      await BackgroundFetch.registerHeadlessTask(backgroundTask); 
+    };
+
+    initBackgroundFetch();
+
+    return () => {
+      BackgroundFetch.stop(); 
+    };
+  }, []);
 
   return (
     <ErrorBoundary>
