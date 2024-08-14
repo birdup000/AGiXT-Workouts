@@ -48,11 +48,10 @@ import AGiXTService, {
 } from './AGiXTService'; 
 import HealthConnect, {
   RecordType,
-  ActivitySummary,
   SdkAvailabilityStatus,
   ReadRecordsOptions,
 } from 'react-native-health-connect';
-import BackgroundFetch from 'react-native-background-fetch';
+import BackgroundFetch, { BackgroundFetchResult } from 'react-native-background-fetch';
 
 const { width, height } = Dimensions.get('window');
 const Tab = createBottomTabNavigator();
@@ -795,7 +794,7 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
     const [bodyPartModalVisible, setBodyPartModalVisible] = useState(false);
     const [isDemoMode, setIsDemoMode] = useState(false);
     const [workoutAnalysis, setWorkoutAnalysis] = useState<WorkoutAnalysis | null>(null);
-    const [recentActivities, setRecentActivities] = useState<ActivitySummary[]>([]);
+    const [recentActivities, setRecentActivities] = useState<any[]>([]); // Updated to any[]
     const [healthConnectAvailable, setHealthConnectAvailable] = useState(false);
     const [healthConnectPermissionsGranted, setHealthConnectPermissionsGranted] = useState(false);
 
@@ -1310,24 +1309,23 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
     }
   }, [agixtService, userProfile, showAlert]);
 
-  // Function to filter workout-like activities
-  const filterWorkouts = (activities: ActivitySummary[]): ActivitySummary[] => {
-    const workoutActivities = activities.filter(activity => {
-      // Customize your workout filtering logic here
-      return (
-        activity.activityType === RecordType.ACTIVITY_SUMMARY && 
-        activity.duration > 300000 // 5 minutes in milliseconds
-      );
+  // Function to filter workout-like activities (updated)
+  const filterWorkouts = (records: any[]): any[] => {
+    // Implement your filtering logic based on available data
+    // For example, filter by duration or other relevant criteria
+    const workoutActivities = records.filter(record => {
+      // Example: Filter records with duration greater than 5 minutes
+      return record.duration > 300000; 
     });
     return workoutActivities;
   };
 
-  // Background task to fetch and process activities
+  // Background task to fetch and process activities (updated)
   const backgroundTask = async () => {
     try {
       if (!healthConnectAvailable || !healthConnectPermissionsGranted) {
         console.warn('Health Connect is not available or permissions are not granted.');
-        return BackgroundFetch.STATUS_RESTRICTED;
+        return BackgroundFetchResult.Restricted;
       }
 
       const now = new Date();
@@ -1341,24 +1339,19 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
         }
       };
 
-      const newActivities = await HealthConnect.readRecords(
-        RecordType.ACTIVITY_SUMMARY,
+      // Fetch relevant records (e.g., steps, distance, calories)
+      const stepsData = await HealthConnect.readRecords(
+        HealthConnect.RecordType.STEPS,
         options
       );
 
-      setRecentActivities(prevActivities => {
-        // Combine new activities with existing ones (avoid duplicates)
-        const allActivities = [...prevActivities, ...newActivities.records];
-        const uniqueActivities = allActivities.filter(
-          (activity, index, self) =>
-            index === self.findIndex((a) => a.uuid === activity.uuid),
-        );
-        return uniqueActivities;
-      });
+      // ... fetch other record types as needed (e.g., DISTANCE, ACTIVE_CALORIES_BURNED)
 
-      const workouts = filterWorkouts(newActivities.records);
+      // Combine and filter records to identify workout sessions
+      const allRecords = [...stepsData.records /*, ...otherRecords*/];
+      const workouts = filterWorkouts(allRecords);
 
-      if (workouts.length > 0 && agixtService) { 
+      if (workouts.length > 0 && agixtService) {
         try {
           const analysis = await agixtService.analyzeWorkouts(workouts);
           setWorkoutAnalysis(analysis);
@@ -1372,10 +1365,10 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
         }
       }
 
-      return BackgroundFetch.FETCH_RESULT_NEW_DATA;
+      return BackgroundFetchResult.NewData;
     } catch (error) {
       console.error('Error in background task:', error);
-      return BackgroundFetch.FETCH_RESULT_FAILED;
+      return BackgroundFetchResult.Failed;
     }
   };
 
@@ -1410,8 +1403,9 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
             const grantedPermissions = await HealthConnect.requestPermission([
               {
                 accessType: 'read',
-                recordType: RecordType.ACTIVITY_SUMMARY,
+                recordType: RecordType.STEPS,
               },
+              // ... request permissions for other record types
             ]);
             setHealthConnectPermissionsGranted(grantedPermissions.length > 0);
           } else {
