@@ -47,8 +47,8 @@ import AGiXTService, {
   BodyMeasurements
 } from './AGiXTService'; 
 import HealthConnect, {
-  HealthDataType,
-  ActivitySummaryRecord,
+  RecordType,
+  ActivitySummary,
   SdkAvailabilityStatus,
   ReadRecordsOptions,
 } from 'react-native-health-connect';
@@ -795,7 +795,7 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
     const [bodyPartModalVisible, setBodyPartModalVisible] = useState(false);
     const [isDemoMode, setIsDemoMode] = useState(false);
     const [workoutAnalysis, setWorkoutAnalysis] = useState<WorkoutAnalysis | null>(null);
-    const [recentActivities, setRecentActivities] = useState<ActivitySummaryRecord[]>([]);
+    const [recentActivities, setRecentActivities] = useState<ActivitySummary[]>([]);
     const [healthConnectAvailable, setHealthConnectAvailable] = useState(false);
     const [healthConnectPermissionsGranted, setHealthConnectPermissionsGranted] = useState(false);
 
@@ -1311,11 +1311,11 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
   }, [agixtService, userProfile, showAlert]);
 
   // Function to filter workout-like activities
-  const filterWorkouts = (activities: ActivitySummaryRecord[]): ActivitySummaryRecord[] => {
+  const filterWorkouts = (activities: ActivitySummary[]): ActivitySummary[] => {
     const workoutActivities = activities.filter(activity => {
       // Customize your workout filtering logic here
       return (
-        activity.activityType === HealthDataType.WALKING && 
+        activity.activityType === RecordType.ACTIVITY_SUMMARY && 
         activity.duration > 300000 // 5 minutes in milliseconds
       );
     });
@@ -1334,12 +1334,15 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
       const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000); // 1 hour ago
 
       const options: ReadRecordsOptions = {
-        startDate: oneHourAgo,
-        endDate: now,
+        timeRangeFilter: {
+          operator: 'between',
+          startTime: oneHourAgo.toISOString(),
+          endTime: now.toISOString(),
+        }
       };
 
       const newActivities = await HealthConnect.readRecords(
-        HealthDataType.ACTIVITY_SUMMARY,
+        RecordType.ACTIVITY_SUMMARY,
         options
       );
 
@@ -1369,10 +1372,10 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
         }
       }
 
-      return BackgroundFetch.STATUS_AVAILABLE;
+      return BackgroundFetch.FETCH_RESULT_NEW_DATA;
     } catch (error) {
       console.error('Error in background task:', error);
-      return BackgroundFetch.STATUS_FAILED;
+      return BackgroundFetch.FETCH_RESULT_FAILED;
     }
   };
 
@@ -1407,7 +1410,7 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
             const grantedPermissions = await HealthConnect.requestPermission([
               {
                 accessType: 'read',
-                recordType: HealthDataType.ACTIVITY_SUMMARY,
+                recordType: RecordType.ACTIVITY_SUMMARY,
               },
             ]);
             setHealthConnectPermissionsGranted(grantedPermissions.length > 0);
@@ -1754,9 +1757,9 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
                        </View>
                      </View>
                    </Modal>
-           
-                   {/* Achievements Modal */}
-                   <AchievementsModal
+
+                                     {/* Achievements Modal */}
+                                     <AchievementsModal
                      visible={achievementsModalVisible}
                      onClose={() => setAchievementsModalVisible(false)}
                      userProfile={userProfile}
