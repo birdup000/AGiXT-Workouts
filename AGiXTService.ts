@@ -1,6 +1,9 @@
 import axios from 'axios';
-import { ActivitySummaryRecord } from 'react-native-health-connect'; 
 
+interface ActivitySummaryRecord {
+  activityType: string;
+  duration: number;
+}
 export interface UserProfile {
   name: string;
   age: string;
@@ -1098,6 +1101,7 @@ class AGiXTService {
       { userId: 'user3', progress: 90 },
     ];
   }
+
 
   public async analyzeWorkouts(workouts: ActivitySummaryRecord[]): Promise<WorkoutAnalysis> {
     // 1. Prepare the workout data for AGiXT
