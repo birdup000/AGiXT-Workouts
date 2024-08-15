@@ -47,15 +47,23 @@ import AGiXTService, {
   BodyMeasurements
 } from './AGiXTService'; 
 import HealthConnect, {
-  RecordType,
   SdkAvailabilityStatus,
   ReadRecordsOptions,
+  StepsRecord, // Corrected import
 } from 'react-native-health-connect';
-import BackgroundFetch, { BackgroundFetchResult } from 'react-native-background-fetch';
+import * as BackgroundFetch from 'expo-background-fetch';
+import * as TaskManager from 'expo-task-manager';
 
 const { width, height } = Dimensions.get('window');
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
+
+const BACKGROUND_FETCH_TASK = 'background-fetch-task';
+
+// Define the background task
+TaskManager.defineTask(BACKGROUND_FETCH_TASK, async () => {
+  // ... (Your background task logic)
+});
 
 // Interfaces
 interface ErrorBoundaryProps {
@@ -821,6 +829,7 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
             setApiUri(storedApiUri);
           }
 
+
           // Demo Mode Detection (activated when API URI is 'demo_api_uri')
           setIsDemoMode(apiUri === 'demo');
 
@@ -1325,7 +1334,7 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
     try {
       if (!healthConnectAvailable || !healthConnectPermissionsGranted) {
         console.warn('Health Connect is not available or permissions are not granted.');
-        return BackgroundFetchResult.Restricted;
+        return BackgroundFetchResult.NoData; 
       }
 
       const now = new Date();
@@ -1339,16 +1348,9 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
         }
       };
 
-      // Fetch relevant records (e.g., steps, distance, calories)
-      const stepsData = await HealthConnect.readRecords(
-        HealthConnect.RecordType.STEPS,
-        options
-      );
+      const stepsData = await HealthConnect.readRecords(StepsRecord, options); 
 
-      // ... fetch other record types as needed (e.g., DISTANCE, ACTIVE_CALORIES_BURNED)
-
-      // Combine and filter records to identify workout sessions
-      const allRecords = [...stepsData.records /*, ...otherRecords*/];
+      const allRecords = [...stepsData.records];
       const workouts = filterWorkouts(allRecords);
 
       if (workouts.length > 0 && agixtService) {
@@ -1361,34 +1363,15 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
           }
         } catch (error) {
           console.error('Error analyzing workouts:', error);
-          // Additional error handling (e.g., display a user-friendly message)
         }
       }
 
-      return BackgroundFetchResult.NewData;
+      return BackgroundFetchResult.NewData; 
     } catch (error) {
       console.error('Error in background task:', error);
-      return BackgroundFetchResult.Failed;
+      return BackgroundFetchResult.Failed; 
     }
   };
-
-  useEffect(() => {
-    const initBackgroundFetch = async () => {
-      await BackgroundFetch.configure(
-        {
-          minimumFetchInterval: 15, // Adjust as needed
-        },
-        backgroundTask,
-      );
-      await BackgroundFetch.registerHeadlessTask(backgroundTask); 
-    };
-
-    initBackgroundFetch();
-
-    return () => {
-      BackgroundFetch.stop(); 
-    };
-  }, []);
 
   // Initialize Health Connect and request permissions
   useEffect(() => {
@@ -1403,7 +1386,7 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
             const grantedPermissions = await HealthConnect.requestPermission([
               {
                 accessType: 'read',
-                recordType: RecordType.STEPS,
+                recordType: StepsRecord, 
               },
               // ... request permissions for other record types
             ]);
@@ -1441,22 +1424,29 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
     initAgixtService();
   }, []);
 
-  // Initialize and manage the background task
+  // Register and manage the background task
   useEffect(() => {
-    const initBackgroundFetch = async () => {
-      await BackgroundFetch.configure(
-        {
-          minimumFetchInterval: 15, // Adjust the interval as needed
-        },
-        backgroundTask,
-      );
-      await BackgroundFetch.registerHeadlessTask(backgroundTask);
+    const registerBackgroundTask = async () => {
+      const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_FETCH_TASK);
+      if (!isRegistered) {
+        try {
+          await BackgroundFetch.registerTaskAsync(BACKGROUND_FETCH_TASK, {
+            minimumInterval: 15 * 60, // 15 minutes
+            stopOnTerminate: false,
+            startOnBoot: true,
+          });
+        } catch (error) {
+          console.error('Error registering background fetch task:', error);
+        }
+      }
     };
 
-    initBackgroundFetch();
+    if (healthConnectAvailable && healthConnectPermissionsGranted) {
+      registerBackgroundTask();
+    }
 
     return () => {
-      BackgroundFetch.stop();
+      BackgroundFetch.unregisterTaskAsync(BACKGROUND_FETCH_TASK);
     };
   }, [healthConnectAvailable, healthConnectPermissionsGranted]); 
 
@@ -1747,7 +1737,7 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
               <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setFeedbackModalVisible
                            (false)}>
                            <Text style={styles.modalButtonText}>Cancel</Text>
-                         </TouchableOpacity>
+                           </TouchableOpacity>
                        </View>
                      </View>
                    </Modal>
