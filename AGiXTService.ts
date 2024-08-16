@@ -4,6 +4,7 @@ interface ActivitySummaryRecord {
   activityType: string;
   duration: number;
 }
+
 export interface UserProfile {
   name: string;
   age: string;
@@ -1104,37 +1105,44 @@ class AGiXTService {
 
 
   public async analyzeWorkouts(workouts: ActivitySummaryRecord[]): Promise<WorkoutAnalysis> {
-    // 1. Prepare the workout data for AGiXT
-    const workoutDataForAgixt = workouts.map(workout => ({
-      activityType: workout.activityType,
-      duration: workout.duration,
-      // ... other relevant fields from ActivitySummaryRecord
-    }));
+    if (this.isDemoMode) {
+      return {
+        recommendation: "Since you've been focusing on cardio lately, try incorporating some strength training exercises like squats and push-ups into your next workout.",
+        warning: false
+      };
+    } else {
+      // 1. Prepare the workout data for AGiXT
+      const workoutDataForAgixt = workouts.map(workout => ({
+        activityType: workout.activityType,
+        duration: workout.duration,
+        // ... other relevant fields from ActivitySummaryRecord
+      }));
 
-    // 2. Construct the prompt with clear JSON formatting instructions
-    const prompt = `Analyze these workouts and provide a recommendation for the user's next workout.
-    Workout Data: ${JSON.stringify(workoutDataForAgixt)}
+      // 2. Construct the prompt with clear JSON formatting instructions
+      const prompt = `Analyze these workouts and provide a recommendation for the user's next workout.
+      Workout Data: ${JSON.stringify(workoutDataForAgixt)}
 
-    Please format your response strictly as a JSON object with the following structure:
-    \`\`\`json
-    {
-      "recommendation": "Recommendation text for the next workout",
-      "warning": true/false // true if it's a cautionary recommendation
-    }
-    \`\`\`
-    `;
+      Please format your response strictly as a JSON object with the following structure:
+      \`\`\`json
+      {
+        "recommendation": "Recommendation text for the next workout",
+        "warning": true/false // true if it's a cautionary recommendation
+      }
+      \`\`\`
+      `;
 
-    try {
-      // 3. Call your AGiXT API (using your existing chat function)
-      const response = await this.chat(this.agentName, prompt, "WorkoutAnalysis");
+      try {
+        // 3. Call your AGiXT API (using your existing chat function)
+        const response = await this.chat(this.agentName, prompt, "WorkoutAnalysis");
 
-      // 4. Parse the response (make sure extractJson is defined in your class)
-      const analysis: WorkoutAnalysis = this.extractJson(response);
-      return analysis;
+        // 4. Parse the response (make sure extractJson is defined in your class)
+        const analysis: WorkoutAnalysis = this.extractJson(response);
+        return analysis;
 
-    } catch (error) {
-      console.error('Error analyzing workouts with AGiXT:', error);
-      throw error; // Re-throw the error for handling in the background task 
+      } catch (error) {
+        console.error('Error analyzing workouts with AGiXT:', error);
+        throw error; // Re-throw the error for handling in the background task 
+      }
     }
   }
 }
