@@ -46,7 +46,7 @@ import AGiXTService, {
   SocialChallenge,
   ProgressReport,
   BodyMeasurements
-} from './AGiXTService';
+} from './AGiXTService'; // Make sure to replace with your actual path
 import HealthConnect, {
   SdkAvailabilityStatus,
   ReadRecordsOptions,
@@ -829,1864 +829,1879 @@ const WorkoutApp: React.FC = () => {
       try {
         setLoading(true);
 
-        // Get Demo Mode and API Settings from AsyncStorage
-        const storedDemoMode = await AsyncStorage.getItem('demoMode');
-        const storedApiKey = await AsyncStorage.getItem('apiKey');
-        const storedApiUri = await AsyncStorage.getItem('apiUri');
+       // Get Demo Mode and API Settings from AsyncStorage
+       const storedDemoMode = await AsyncStorage.getItem('demoMode');
+       const storedApiKey = await AsyncStorage.getItem('apiKey');
+       const storedApiUri = await AsyncStorage.getItem('apiUri');
 
-        // Set Demo Mode
-        setIsDemoMode(storedDemoMode === 'true');
+       // Set Demo Mode
+       setIsDemoMode(storedDemoMode === 'true');
 
-        // Set API Key and URI
-        if (storedApiKey) {
-          setApiKey(storedApiKey);
-        }
-        if (storedApiUri) {
-          setApiUri(storedApiUri);
-        }
+       // Set API Key and URI
+       if (storedApiKey) {
+         setApiKey(storedApiKey);
+       }
+       if (storedApiUri) {
+         setApiUri(storedApiUri);
+       }
 
-        const service = new AGiXTService(isDemoMode);
-        if (!isDemoMode) {
-          service.updateSettings(apiUri, apiKey);
-          await service.initializeWorkoutAgent();
-        }
-        setAgixtService(service);
+       const service = new AGiXTService(isDemoMode);
+       if (!isDemoMode) {
+         service.updateSettings(apiUri, apiKey);
+         await service.initializeWorkoutAgent();
+       }
+       setAgixtService(service);
 
-        // Load User Profile and Data
-        const storedProfile = await AsyncStorage.getItem(isDemoMode ? 'demo_userProfile' : 'userProfile');
-        const storedWorkoutPath = await AsyncStorage.getItem(isDemoMode ? 'demo_workoutPath' : 'workoutPath');
-        const storedWorkoutPlan = await AsyncStorage.getItem(isDemoMode ? 'demo_currentWorkoutPlan' : 'currentWorkoutPlan');
-        const storedPoints = await AsyncStorage.getItem(isDemoMode ? 'demo_points' : 'points');
-        const storedWorkoutsCompleted = await AsyncStorage.getItem(isDemoMode ? 'demo_workoutsCompleted' : 'workoutsCompleted');
-        const storedAchievements = await AsyncStorage.getItem(isDemoMode ? 'demo_achievements' : 'achievements');
-        const storedBmiHistory = await AsyncStorage.getItem(isDemoMode ? 'demo_bmiHistory' : 'bmiHistory');
-        const storedMealPlan = await AsyncStorage.getItem(isDemoMode ? 'demo_mealPlan' : 'mealPlan');
-        const storedChallenges = await AsyncStorage.getItem(isDemoMode ? 'demo_challenges' : 'challenges');
+       // Load User Profile and Data
+       const storedProfile = await AsyncStorage.getItem(isDemoMode ? 'demo_userProfile' : 'userProfile');
+       const storedWorkoutPath = await AsyncStorage.getItem(isDemoMode ? 'demo_workoutPath' : 'workoutPath');
+       const storedWorkoutPlan = await AsyncStorage.getItem(isDemoMode ? 'demo_currentWorkoutPlan' : 'currentWorkoutPlan');
+       const storedPoints = await AsyncStorage.getItem(isDemoMode ? 'demo_points' : 'points');
+       const storedWorkoutsCompleted = await AsyncStorage.getItem(isDemoMode ? 'demo_workoutsCompleted' : 'workoutsCompleted');
+       const storedAchievements = await AsyncStorage.getItem(isDemoMode ? 'demo_achievements' : 'achievements');
+       const storedBmiHistory = await AsyncStorage.getItem(isDemoMode ? 'demo_bmiHistory' : 'bmiHistory');
+       const storedMealPlan = await AsyncStorage.getItem(isDemoMode ? 'demo_mealPlan' : 'mealPlan');
+       const storedChallenges = await AsyncStorage.getItem(isDemoMode ? 'demo_challenges' : 'challenges');
 
-        if (storedProfile && storedWorkoutPath) {
-          setUserProfile(JSON.parse(storedProfile));
-          setWorkoutPath(storedWorkoutPath);
-          setIsFirstLaunch(false);
-          if (storedWorkoutPlan) {
-            setWorkoutPlan(JSON.parse(storedWorkoutPlan));
-          }
-          if (storedPoints) setPoints(parseInt(storedPoints, 10));
-          if (storedWorkoutsCompleted) setWorkoutsCompleted(parseInt(storedWorkoutsCompleted, 10));
-          if (storedAchievements) setAchievements(JSON.parse(storedAchievements));
-          if (storedBmiHistory) setBmiHistory(JSON.parse(storedBmiHistory));
-          if (storedMealPlan) setMealPlan(JSON.parse(storedMealPlan));
-          if (storedChallenges) setChallenges(JSON.parse(storedChallenges));
-        } else {
-          setIsFirstLaunch(true);
-          // Pre-populate user profile with dummy data for demo mode or first launch
-          setUserProfile({
-            name: isDemoMode ? 'Demo User' : '',
-            age: isDemoMode ? '30' : '',
-            gender: isDemoMode ? 'Male' : '',
-            feet: isDemoMode ? '5' : '',
-            inches: isDemoMode ? '10' : '',
-            weight: isDemoMode ? '170' : '',
-            goal: isDemoMode ? 'Muscle Building' : '',
-            fitnessLevel: isDemoMode ? 'Intermediate' : '',
-            daysPerWeek: isDemoMode ? '4' : '',
-            bio: isDemoMode ? 'This is a demo profile.' : '',
-            interests: isDemoMode ? 'Weightlifting, Running' : '',
-            profileImage: null,
-            level: 1,
-            experiencePoints: 0,
-            currentStreak: 0,
-            longestStreak: 0,
-            lastWorkoutDate: '',
-            coins: 0,
-            unlockedAchievements: [],
-            friends: [],
-          });
-          setWorkoutPath(isDemoMode ? 'Muscle Building' : '');
-          if (isDemoMode) {
-            setWorkoutPlan([
-              {
-                conversationName: 'DemoWorkout_1',
-                workoutPlan: {
-                  weeklyPlan: [
-                    {
-                      day: 'Day 1 - Chest & Triceps',
-                      focus: 'Strength',
-                      exercises: [
-                        { name: 'Bench Press', sets: 3, reps: '8-12', rest: '60 seconds' },
-                        // ... (Other exercises)
-                      ],
-                    },
-                  ],
-                  nutritionAdvice: 'Eat plenty of protein and complex carbohydrates.',
-                },
-                completed: false,
-                difficulty: 3,
-              },
-            ]);
-            setAchievements([
-              { id: 'first_workout', name: 'First Workout', description: 'Complete your first workout', icon: 'first_workout_icon', unlocked: true },
-              { id: 'week_warrior', name: 'Week Warrior', description: 'Complete all workouts for a week', icon: 'week_warrior_icon', unlocked: false },
-              { id: 'nutrition_master', name: 'Nutrition Master', description: 'Follow meal plan for a month', icon: 'nutrition_master_icon', unlocked: false },
-              { id: 'challenge_champion', name: 'Challenge Champion', description: 'Complete 5 challenges', icon: 'challenge_champion_icon', unlocked: false },
-              { id: 'bmi_improver', name: 'BMI Improver', description: 'Improve your BMI by 1 point', icon: 'bmi_improver_icon', unlocked: false },
-            ]);
-            setBmiHistory([
-              { date: new Date().toISOString(), bmi: 24.5 },
-            ]);
-            setMealPlan({
-              breakfast: 'Demo Breakfast: Oatmeal with berries and nuts',
-              lunch: 'Demo Lunch: Chicken salad sandwich on whole-wheat bread',
-              dinner: 'Demo Dinner: Salmon with roasted vegetables',
-              snacks: ['Demo Snack 1: Greek yogurt with fruit', 'Demo Snack 2: Almonds'],
-            });
-            setChallenges([
-              {
-                id: 1,
-                name: 'Demo Challenge 1',
-                description: 'Complete 3 demo workouts this week.',
-                duration: '1 week',
-                difficulty: 'Easy',
-                completed: false,
-              },
-              {
-                id: 2,
-                name: 'Demo Challenge 2',
-                description: 'Run 5 miles.',
-                duration: '1 week',
-                difficulty: 'Medium',
-                completed: false,
-              },
-            ]);
-          }
-        }
+       if (storedProfile && storedWorkoutPath) {
+         setUserProfile(JSON.parse(storedProfile));
+         setWorkoutPath(storedWorkoutPath);
+         setIsFirstLaunch(false);
+         if (storedWorkoutPlan) {
+           setWorkoutPlan(JSON.parse(storedWorkoutPlan));
+         }
+         if (storedPoints) setPoints(parseInt(storedPoints, 10));
+         if (storedWorkoutsCompleted) setWorkoutsCompleted(parseInt(storedWorkoutsCompleted, 10));
+         if (storedAchievements) setAchievements(JSON.parse(storedAchievements));
+         if (storedBmiHistory) setBmiHistory(JSON.parse(storedBmiHistory));
+         if (storedMealPlan) setMealPlan(JSON.parse(storedMealPlan));
+         if (storedChallenges) setChallenges(JSON.parse(storedChallenges));
+       } else {
+         setIsFirstLaunch(true);
+         // Pre-populate user profile with dummy data for demo mode or first launch
+         setUserProfile({
+           name: isDemoMode ? 'Demo User' : '',
+           age: isDemoMode ? '30' : '',
+           gender: isDemoMode ? 'Male' : '',
+           feet: isDemoMode ? '5' : '',
+           inches: isDemoMode ? '10' : '',
+           weight: isDemoMode ? '170' : '',
+           goal: isDemoMode ? 'Muscle Building' : '',
+           fitnessLevel: isDemoMode ? 'Intermediate' : '',
+           daysPerWeek: isDemoMode ? '4' : '',
+           bio: isDemoMode ? 'This is a demo profile.' : '',
+           interests: isDemoMode ? 'Weightlifting, Running' : '',
+           profileImage: null,
+           level: 1,
+           experiencePoints: 0,
+           currentStreak: 0,
+           longestStreak: 0,
+           lastWorkoutDate: '',
+           coins: 0,
+           unlockedAchievements: [],
+           friends: [],
+         });
+         setWorkoutPath(isDemoMode ? 'Muscle Building' : '');
+         if (isDemoMode) {
+           setWorkoutPlan([
+             {
+               conversationName: 'DemoWorkout_1',
+               workoutPlan: {
+                 weeklyPlan: [
+                   {
+                     day: 'Day 1 - Chest & Triceps',
+                     focus: 'Strength',
+                     exercises: [
+                       { name: 'Bench Press', sets: 3, reps: '8-12', rest: '60 seconds' },
+                       // ... (Other exercises)
+                     ],
+                   },
+                 ],
+                 nutritionAdvice: 'Eat plenty of protein and complex carbohydrates.',
+               },
+               completed: false,
+               difficulty: 3,
+             },
+           ]);
+           setAchievements([
+             { id: 'first_workout', name: 'First Workout', description: 'Complete your first workout', icon: 'first_workout_icon', unlocked: true },
+             { id: 'week_warrior', name: 'Week Warrior', description: 'Complete all workouts for a week', icon: 'week_warrior_icon', unlocked: false },
+             { id: 'nutrition_master', name: 'Nutrition Master', description: 'Follow meal plan for a month', icon: 'nutrition_master_icon', unlocked: false },
+             { id: 'challenge_champion', name: 'Challenge Champion', description: 'Complete 5 challenges', icon: 'challenge_champion_icon', unlocked: false },
+             { id: 'bmi_improver', name: 'BMI Improver', description: 'Improve your BMI by 1 point', icon: 'bmi_improver_icon', unlocked: false },
+           ]);
+           setBmiHistory([
+             { date: new Date().toISOString(), bmi: 24.5 },
+           ]);
+           setMealPlan({
+             breakfast: 'Demo Breakfast: Oatmeal with berries and nuts',
+             lunch: 'Demo Lunch: Chicken salad sandwich on whole-wheat bread',
+             dinner: 'Demo Dinner: Salmon with roasted vegetables',
+             snacks: ['Demo Snack 1: Greek yogurt with fruit', 'Demo Snack 2: Almonds'],
+           });
+           setChallenges([
+             {
+               id: 1,
+               name: 'Demo Challenge 1',
+               description: 'Complete 3 demo workouts this week.',
+               duration: '1 week',
+               difficulty: 'Easy',
+               completed: false,
+             },
+             {
+               id: 2,
+               name: 'Demo Challenge 2',
+               description: 'Run 5 miles.',
+               duration: '1 week',
+               difficulty: 'Medium',
+               completed: false,
+             },
+           ]);
+         }
+       }
 
-        await initializeFeatures();
-      } catch (error) {
-        console.error('Error initializing app:', error);
-        showAlert('Error', 'Failed to initialize the app. Please restart.');
-      } finally {
-        setLoading(false);
-      }
-    };
+       await initializeFeatures();
+     } catch (error) {
+       console.error('Error initializing app:', error);
+       showAlert('Error', 'Failed to initialize the app. Please restart.');
+     } finally {
+       setLoading(false);
+     }
+   };
 
-    initializeApp();
-  }, []);
+   initializeApp();
+ }, []);
 
-  const pickImage = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
+ const pickImage = async () => {
+   let result = await ImagePicker.launchImageLibraryAsync({
+     mediaTypes: ImagePicker.MediaTypeOptions.Images,
+     allowsEditing: true,
+     aspect: [4, 3],
+     quality: 1,
+   });
 
-    if (!result.canceled) {
-      setUserProfile(prevProfile => ({ ...prevProfile, profileImage: result.assets[0].uri }));
-    }
-  };
+   if (!result.canceled) {
+     setUserProfile(prevProfile => ({ ...prevProfile, profileImage: result.assets[0].uri }));
+   }
+ };
 
-  const handleEditProfile = () => {
-    setProfileModalVisible(true);
-  };
+ const handleEditProfile = () => {
+   setProfileModalVisible(true);
+ };
 
-  const handleOpenSettings = () => {
-    setSettingsModalVisible(true);
-  };
+ const handleOpenSettings = () => {
+   setSettingsModalVisible(true);
+ };
 
-  const loadMealPlan = useCallback(async () => {
-    if (!agixtService) return;
-    try {
-      setLoading(true);
-      const newMealPlan = await agixtService.getMealPlan(userProfile);
-      setMealPlan(newMealPlan);
-      await AsyncStorage.setItem(isDemoMode ? 'demo_mealPlan' : 'mealPlan', JSON.stringify(newMealPlan));
-    } catch (error) {
-      console.error('Error loading meal plan:', error);
-      showAlert('Error', 'Failed to load meal plan. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [agixtService, userProfile, showAlert, isDemoMode]);
+ const loadMealPlan = useCallback(async () => {
+   if (!agixtService) return;
+   try {
+     setLoading(true);
+     const newMealPlan = await agixtService.getMealPlan(userProfile);
+     setMealPlan(newMealPlan);
+     await AsyncStorage.setItem(isDemoMode ? 'demo_mealPlan' : 'mealPlan', JSON.stringify(newMealPlan));
+   } catch (error) {
+     console.error('Error loading meal plan:', error);
+     showAlert('Error', 'Failed to load meal plan. Please try again.');
+   } finally {
+     setLoading(false);
+   }
+ }, [agixtService, userProfile, showAlert, isDemoMode]);
 
-  const loadChallenges = useCallback(async () => {
-    if (!agixtService) return;
-    try {
-      setLoading(true);
-      const storedChallenges = await AsyncStorage.getItem(isDemoMode ? 'demo_challenges' : 'challenges');
-      if (storedChallenges) {
-        setChallenges(JSON.parse(storedChallenges));
-      } else {
-        const newChallenges = await agixtService.getChallenges(userProfile);
-        setChallenges(newChallenges);
-        await AsyncStorage.setItem(isDemoMode ? 'demo_challenges' : 'challenges', JSON.stringify(newChallenges));
-      }
-    } catch (error) {
-      console.error('Error loading challenges:', error);
-      showAlert('Error', 'Failed to load challenges. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [agixtService, userProfile, showAlert, isDemoMode]);
+ const loadChallenges = useCallback(async () => {
+   if (!agixtService) return;
+   try {
+     setLoading(true);
+     const storedChallenges = await AsyncStorage.getItem(isDemoMode ? 'demo_challenges' : 'challenges');
+     if (storedChallenges) {
+       setChallenges(JSON.parse(storedChallenges));
+     } else {
+       const newChallenges = await agixtService.getChallenges(userProfile);
+       setChallenges(newChallenges);
+       await AsyncStorage.setItem(isDemoMode ? 'demo_challenges' : 'challenges', JSON.stringify(newChallenges));
+     }
+   } catch (error) {
+     console.error('Error loading challenges:', error);
+     showAlert('Error', 'Failed to load challenges. Please try again.');
+   } finally {
+     setLoading(false);
+   }
+ }, [agixtService, userProfile, showAlert, isDemoMode]);
 
-  const initializeFeatures = useCallback(async () => {
-    if (!agixtService) {
-      console.error('AGiXT Service is not initialized');
-      return;
-    }
+ const initializeFeatures = useCallback(async () => {
+   if (!agixtService) {
+     console.error('AGiXT Service is not initialized');
+     return;
+   }
 
-    try {
-      setLoading(true);
-      if (userProfile.name && userProfile.age && userProfile.gender) {
-        await loadChallenges();
-        await loadMealPlan();
+   try {
+     setLoading(true);
+     if (userProfile.name && userProfile.age && userProfile.gender) {
+       await loadChallenges();
+       await loadMealPlan();
 
-        const quote = await agixtService.getMotivationalQuote();
-        setMotivationalQuote(quote);
+       const quote = await agixtService.getMotivationalQuote();
+       setMotivationalQuote(quote);
 
-        const report = await agixtService.getProgressReport(userProfile, [], []);
-        setProgressReport(report);
-      }
-    } catch (error) {
-      console.error('Error initializing features:', error);
-      setError('Failed to initialize some features. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [agixtService, userProfile, loadChallenges, loadMealPlan]);
+       const report = await agixtService.getProgressReport(userProfile, [], []);
+       setProgressReport(report);
+     }
+   } catch (error) {
+     console.error('Error initializing features:', error);
+     setError('Failed to initialize some features. Please try again.');
+   } finally {
+     setLoading(false);
+   }
+ }, [agixtService, userProfile, loadChallenges, loadMealPlan]);
 
-  const handleInputChange = useCallback((field: keyof UserProfile, value: string) => {
-    setUserProfile(prevProfile => ({ ...prevProfile, [field]: value }));
-  }, []);
+ const handleInputChange = useCallback((field: keyof UserProfile, value: string) => {
+   setUserProfile(prevProfile => ({ ...prevProfile, [field]: value }));
+ }, []);
 
-  const checkAchievementsAndUpdateState = useCallback(() => {
+ const checkAchievementsAndUpdateState = useCallback(() => {
+   if (isDemoMode) {
+     showAlert('Demo Mode', 'Achievements are simulated in demo mode.');
+     return;
+   }
+
+   const newAchievements = [...achievements];
+   if (!newAchievements[0].unlocked && workoutsCompleted >= 1) {
+     newAchievements[0].unlocked = true;
+     showAlert('Achievement Unlocked', 'You completed your first workout!');
+     setPoints(prevPoints => prevPoints + 50);
+   }
+   if (workoutsCompleted >= 7 && !newAchievements[1].unlocked) {
+     newAchievements[1].unlocked = true;
+     showAlert('Achievement Unlocked', 'You completed all workouts for a week!');
+     setPoints(prevPoints => prevPoints + 100);
+   }
+   setAchievements(newAchievements);
+   AsyncStorage.setItem('achievements', JSON.stringify(newAchievements));
+   AsyncStorage.setItem('points', points.toString());
+ }, [achievements, workoutsCompleted, showAlert, points, isDemoMode]);
+
+ const generateWorkouts = useCallback(async (preferences: WorkoutPreferences, bodyPart: string | null = null) => {
+  if (!isDemoMode && !agixtService) {
+    showAlert('Error', 'AGiXT Service is not initialized yet.');
+    return;
+  }
+
+  setLoading(true);
+  setError(null);
+
+  try {
+    let initialWorkouts: WorkoutPlanResponse[] | Promise<WorkoutPlanResponse[]> = []; // Updated type
+    
     if (isDemoMode) {
-      showAlert('Demo Mode', 'Achievements are simulated in demo mode.');
-      return;
+      initialWorkouts = agixtService?.generateMultipleWorkouts(preferences, userProfile, 3, bodyPart) || [];
+    } else if (agixtService) {
+      // Await the asynchronous call:
+      initialWorkouts = await agixtService.generateMultipleWorkouts(preferences, userProfile, 3, bodyPart) || [];
     }
 
-    const newAchievements = [...achievements];
-    if (!newAchievements[0].unlocked && workoutsCompleted >= 1) {
-      newAchievements[0].unlocked = true;
-      showAlert('Achievement Unlocked', 'You completed your first workout!');
-      setPoints(prevPoints => prevPoints + 50);
-    }
-    if (workoutsCompleted >= 7 && !newAchievements[1].unlocked) {
-      newAchievements[1].unlocked = true;
-      showAlert('Achievement Unlocked', 'You completed all workouts for a week!');
-      setPoints(prevPoints => prevPoints + 100);
-    }
-    setAchievements(newAchievements);
-    AsyncStorage.setItem('achievements', JSON.stringify(newAchievements));
-    AsyncStorage.setItem('points', points.toString());
-  }, [achievements, workoutsCompleted, showAlert, points, isDemoMode]);
-
-  const generateWorkouts = useCallback(async (preferences: WorkoutPreferences, bodyPart: string | null = null) => {
-    if (!agixtService) {
-      showAlert('Error', 'AGiXT Service is not initialized yet.');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const initialWorkouts = await agixtService.generateMultipleWorkouts(preferences, userProfile, 3, bodyPart);
+    if (initialWorkouts instanceof Promise) {
+      initialWorkouts.then((workouts) => setWorkoutPlan(workouts));
+    } else {
       setWorkoutPlan(initialWorkouts);
-      await AsyncStorage.setItem(isDemoMode ? 'demo_currentWorkoutPlan' : 'currentWorkoutPlan', JSON.stringify(initialWorkouts));
+    }
+    await AsyncStorage.setItem(isDemoMode ? 'demo_currentWorkoutPlan' : 'currentWorkoutPlan', JSON.stringify(initialWorkouts));
 
-      if (!isDemoMode) {
-        setPoints(prevPoints => {
-          const newPoints = prevPoints + 10;
-          AsyncStorage.setItem('points', newPoints.toString());
-          return newPoints;
-        });
-        checkAchievementsAndUpdateState();
-      }
-    } catch (err) {
+    if (!isDemoMode) {
+      setPoints(prevPoints => {
+        const newPoints = prevPoints + 10;
+        AsyncStorage.setItem('points', newPoints.toString());
+        return newPoints;
+      });
+      checkAchievementsAndUpdateState();
+    }
+  } catch (err) {
+    if (!isDemoMode) {
       setError('Failed to generate workout plans');
       console.error(err);
-    } finally {
-      setLoading(false);
     }
-  }, [agixtService, userProfile, checkAchievementsAndUpdateState, showAlert, isDemoMode]);
-
-  const handleWorkoutPreferencesComplete = async (preferences: WorkoutPreferences) => {
-    setWorkoutPreferences(preferences);
-    setShowWorkoutSelection(false);
-    await generateWorkouts(preferences);
-  };
-
-  const calculateBMI = useCallback(() => {
-    if (isDemoMode) {
-      showAlert('Demo Mode', 'BMI calculation is simulated in demo mode.');
-      return;
-    }
-
-    if (!currentWeight || !userProfile.feet || !userProfile.inches) {
-      showAlert('Missing Information', 'Please ensure weight, feet, and inches are filled in.');
-      return;
-    }
-
-    const weightKg = parseFloat(currentWeight) * 0.453592;
-    const heightM = (parseInt(userProfile.feet, 10) * 12 + parseInt(userProfile.inches, 10)) * 0.0254; // Use radix for parseInt
-    const bmi = weightKg / (heightM * heightM);
-
-    const newBmiEntry = {
-      date: new Date().toISOString(),
-      bmi: parseFloat(bmi.toFixed(2)),
-    };
-
-    setBmiHistory(prevHistory => {
-      const newHistory = [...prevHistory, newBmiEntry];
-      AsyncStorage.setItem(isDemoMode ? 'demo_bmiHistory' : 'bmiHistory', JSON.stringify(newHistory));
-      return newHistory;
-    });
-
-    setCurrentWeight('');
-    setBmiModalVisible(false);
-    showAlert('BMI Calculated', `Your current BMI is ${newBmiEntry.bmi}`);
-
-    // Check for BMI improvement achievement
-    if (bmiHistory.length > 1) {
-      const previousBmi = bmiHistory[bmiHistory.length - 2].bmi;
-      if (newBmiEntry.bmi < previousBmi && !achievements[4].unlocked) {
-        const newAchievements = [...achievements];
-        newAchievements[4].unlocked = true;
-        setAchievements(newAchievements);
-        AsyncStorage.setItem(isDemoMode ? 'demo_achievements' : 'achievements', JSON.stringify(newAchievements));
-        showAlert('Achievement Unlocked', 'You improved your BMI!');
-        setPoints(prevPoints => {
-          const newPoints = prevPoints + 75;
-          AsyncStorage.setItem(isDemoMode ? 'demo_points' : 'points', newPoints.toString());
-          return newPoints;
-        });
-      }
-    }
-  }, [currentWeight, userProfile, bmiHistory, achievements, showAlert, isDemoMode]);
-
-  const createCustomExercise = useCallback(async () => {
-    if (isDemoMode) {
-      showAlert('Demo Mode', 'Adding custom exercises is simulated in demo mode.');
-      return;
-    }
-
-    if (!agixtService) return;
-    if (!customExerciseName || !customExerciseDescription) {
-      showAlert('Missing Information', 'Please provide both name and description for the custom exercise.');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const updatedExercises = await agixtService.addCustomExercise(userProfile, {
-        name: customExerciseName,
-        description: customExerciseDescription
-      });
-      setCustomExercises(updatedExercises);
-      setCustomExerciseName('');
-      setCustomExerciseDescription('');
-      setCustomExerciseModalVisible(false);
-      showAlert('Success', 'Custom exercise added successfully!');
-      setPoints(prevPoints => {
-        const newPoints = prevPoints + 15;
-        AsyncStorage.setItem('points', newPoints.toString());
-        return newPoints;
-      });
-    } catch (error) {
-      console.error('Error adding custom exercise:', error);
-      showAlert('Error', 'Failed to add custom exercise. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [customExerciseName, customExerciseDescription, agixtService, userProfile, showAlert]);
-
-  const saveSettings = useCallback(async () => {
-    if (!apiKey.trim() || !apiUri.trim()) {
-      showAlert('Invalid Settings', 'Please enter both API Key and API URI.');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      await AsyncStorage.setItem('apiKey', apiKey);
-      await AsyncStorage.setItem('apiUri', apiUri);
-
-      // Update demo mode based on the saved API URI
-      setIsDemoMode(apiUri === 'demo'); // Assuming 'demo' is the demo API URI
-
-      const newService = new AGiXTService(isDemoMode);
-      if (!isDemoMode) {
-        newService.updateSettings(apiUri, apiKey);
-        await newService.initializeWorkoutAgent();
-      }
-
-      setAgixtService(newService);
-      setSettingsModalVisible(false);
-      showAlert('Settings Saved', 'Your AGiXT settings have been updated and saved.');
-      initializeFeatures();
-    } catch (error) {
-      console.error('Error saving settings:', error);
-      showAlert('Error', 'Failed to save settings. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [apiKey, apiUri, initializeFeatures, showAlert, isDemoMode]);
-
-  const saveProfile = useCallback(async () => {
-    await AsyncStorage.setItem(isDemoMode ? 'demo_userProfile' : 'userProfile', JSON.stringify(userProfile));
-    await AsyncStorage.setItem(isDemoMode ? 'demo_workoutPath' : 'workoutPath', workoutPath);
-    setIsFirstLaunch(false);
-    setProfileModalVisible(false);
-    showAlert('Profile Saved', 'Your profile has been updated successfully.');
-  }, [userProfile, workoutPath, showAlert, isDemoMode]);
-
-  const handleWorkoutCompletion = useCallback(async (difficulty: 'easy' | 'just right' | 'hard') => {
-    if (isDemoMode) {
-      showAlert('Demo Mode', 'Workout completion is simulated in demo mode.');
-      // You can add more specific demo feedback here if needed
-      return;
-    }
-
-    if (!workoutPlan.length || !agixtService) return;
-
-    const feedback: WorkoutFeedback = {
-      workoutId: workoutPlan[0].conversationName,
-      difficulty,
-      completedExercises: workoutPlan[0].workoutPlan.weeklyPlan[0].exercises.map(ex => ex.name),
-    };
-
-    setWorkoutFeedback(feedback);
-
-    try {
-      setLoading(true);
-      await agixtService.logWorkoutCompletion(userProfile, workoutPlan[0].workoutPlan, feedback);
-
-      // Update user profile
-      let updatedProfile = updateStreak(userProfile);
-      updatedProfile = addExperiencePoints(updatedProfile, 50);
-      updatedProfile = awardCoins(updatedProfile, 10);
-
-      // Check for new achievements
-      const newAchievements = checkAchievements(updatedProfile, { totalWorkouts: workoutsCompleted + 1 });
-      if (newAchievements.length > 0) {
-        updatedProfile = {
-          ...updatedProfile,
-          unlockedAchievements: [...updatedProfile.unlockedAchievements, ...newAchievements]
-        };
-        newAchievements.forEach(achievementId => {
-          const achievement = achievements.find(a => a.id === achievementId);
-          if (achievement) {
-            showAlert('Achievement Unlocked', `You've unlocked: ${achievement.name}`);
-          }
-        });
-      }
-
-      setUserProfile(updatedProfile);
-
-      // Instead of slicing, remove only the completed workout
-      const updatedWorkoutPlan = workoutPlan.filter((_, index) => index !== 0);
-      setWorkoutPlan(updatedWorkoutPlan);
-      await AsyncStorage.setItem('currentWorkoutPlan', JSON.stringify(updatedWorkoutPlan));
-
-      setWorkoutsCompleted(prevCompleted => prevCompleted + 1);
-
-      // Generate more workouts only if needed (e.g., below a threshold)
-      if (updatedWorkoutPlan.length < 2) { // Adjust the threshold as needed
-        await generateWorkouts(workoutPreferences!, selectedBodyPart); // Pass selectedBodyPart
-      }
-    } catch (error) {
-      console.error('Error logging workout completion:', error);
-      showAlert('Error', 'Failed to record workout feedback. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [workoutPlan, agixtService, userProfile, generateWorkouts, workoutPreferences, showAlert, workoutsCompleted, achievements, selectedBodyPart, isDemoMode]);
-
-  const refreshMotivationalQuote = useCallback(async () => {
-    if (!agixtService) return;
-
-    try {
-      setLoading(true);
-      const quote = await agixtService.getMotivationalQuote();
-      setMotivationalQuote(quote);
-    } catch (error) {
-      console.error('Error refreshing motivational quote:', error);
-      showAlert('Error', 'Failed to get a new motivational quote. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [agixtService, showAlert]);
-
-  const getProgressReport = useCallback(async () => {
-    if (!agixtService) return;
-
-    try {
-      setLoading(true);
-      const report = await agixtService.getProgressReport(userProfile, [], []);
-      setProgressReport(report);
-      showAlert('Progress Report', report.summary);
-    } catch (error) {
-      console.error('Error getting progress report:', error);
-      showAlert('Error', 'Failed to get your progress report. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [agixtService, userProfile, showAlert]);
-
-  const completeChallenge = useCallback(async (challengeId: number) => {
-    if (isDemoMode) {
-      showAlert('Demo Mode', 'Completing challenges is simulated in demo mode.');
-      return;
-    }
-
-    const updatedChallenges = challenges.map(challenge =>
-      challenge.id === challengeId ? { ...challenge, completed: true } : challenge
-    );
-    setChallenges(updatedChallenges);
-    await AsyncStorage.setItem('challenges', JSON.stringify(updatedChallenges));
-
-    setPoints(prevPoints => {
-      const newPoints = prevPoints + 50;
-      AsyncStorage.setItem('points', newPoints.toString());
-      return newPoints;
-    });
-
-    // Check for challenge achievement
-    const completedChallenges = updatedChallenges.filter(c => c.completed).length;
-    if (completedChallenges >= 5 && !achievements[3].unlocked) {
-      const newAchievements = [...achievements];
-      newAchievements[3].unlocked = true;
-      setAchievements(newAchievements);
-      await AsyncStorage.setItem('achievements', JSON.stringify(newAchievements));
-      showAlert('Achievement Unlocked', 'You completed 5 challenges!');
-      setPoints(prevPoints => {
-        const newPoints = prevPoints + 100;
-        AsyncStorage.setItem('points', newPoints.toString());
-        return newPoints;
-      });
-    }
-
-    showAlert('Challenge Completed', 'Congratulations! You\'ve completed a challenge.');
-  }, [challenges, achievements, showAlert]);
-
-  const createSocialChallenge = useCallback(async (challengeDetails: Partial<SocialChallenge>) => {
-    if (isDemoMode) {
-      showAlert('Demo Mode', 'Creating social challenges is simulated in demo mode.');
-      return;
-    }
-
-    if (!agixtService) return;
-    try {
-      setLoading(true);
-      const newChallenge = await agixtService.createSocialChallenge(userProfile, challengeDetails);
-      setSocialChallenges(prev => [...prev, newChallenge]);
-      showAlert('Success', 'Social challenge created successfully!');
-    } catch (error) {
-      console.error('Error creating social challenge:', error);
-      showAlert('Error', 'Failed to create social challenge. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [agixtService, userProfile, showAlert]);
-
-  const joinSocialChallenge = useCallback(async (challengeId: string) => {
-    if (isDemoMode) {
-      showAlert('Demo Mode', 'Joining social challenges is simulated in demo mode.');
-      return;
-    }
-
-    if (!agixtService) return;
-    try {
-      setLoading(true);
-      const updatedChallenge = await agixtService.joinSocialChallenge(userProfile, challengeId);
-      setSocialChallenges(prev => prev.map(c => c.id === challengeId ? updatedChallenge : c));
-      showAlert('Success', 'You have joined the social challenge!');
-    } catch (error) {
-      console.error('Error joining social challenge:', error);
-      showAlert('Error', 'Failed to join social challenge. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [agixtService, userProfile, showAlert]);
-
-  // Function to filter workout-like activities (updated)
-  const filterWorkouts = (records: any[]): any[] => {
-    // Implement your filtering logic based on available data
-    // For example, filter by duration or other relevant criteria
-    const workoutActivities = records.filter(record => {
-      // Example: Filter records with duration greater than 5 minutes
-      return record.duration > 300000;
-    });
-    return workoutActivities;
-  };
-
-  // Background task to fetch and process activities (updated)
-  const backgroundTask = async () => {
-    if (isDemoMode) {
-      return BackgroundFetch.BackgroundFetchResult.NoData;
-    }
-
-    try {
-      if (!healthConnectAvailable || !healthConnectPermissionsGranted) {
-        console.warn('Health Connect is not available or permissions are not granted.');
-        return BackgroundFetch.BackgroundFetchResult.NoData; // Corrected
-      }
-
-      const now = new Date();
-      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000); // 1 hour ago
-
-      const options: ReadRecordsOptions = {
-        timeRangeFilter: {
-          operator: 'between',
-          startTime: oneHourAgo.toISOString(),
-          endTime: now.toISOString(),
-        }
-      };
-
-      const stepsData = await HealthConnect.readRecords('Steps', options); // Corrected
-
-      const allRecords = [...stepsData.records];
-      const workouts = filterWorkouts(allRecords);
-
-      if (workouts.length > 0 && agixtService) {
-        try {
-          const analysis = await agixtService.analyzeWorkouts(workouts);
-          setWorkoutAnalysis(analysis);
-
-          if (analysis.warning) {
-            showAlert('Workout Recommendation', analysis.recommendation);
-          }
-        } catch (error) {
-          console.error('Error analyzing workouts:', error);
-        }
-      }
-
-      return BackgroundFetch.BackgroundFetchResult.NewData; // Corrected
-    } catch (error) {
-      console.error('Error in background task:', error);
-      return BackgroundFetch.BackgroundFetchResult.Failed; // Corrected
-    }
-  };
-
-  // Initialize Health Connect and request permissions
-  useEffect(() => {
-    const initHealthConnect = async () => {
-      try {
-        const isAvailable = await HealthConnect.initialize();
-        setHealthConnectAvailable(isAvailable);
-
-        if (isAvailable) {
-          const status = await HealthConnect.getSdkStatus();
-          if (status === SdkAvailabilityStatus.SDK_AVAILABLE) {
-            const grantedPermissions = await HealthConnect.requestPermission([
-              {
-                accessType: 'read',
-                recordType: 'Steps', // Corrected
-              },
-              // ... request permissions for other record types
-            ]);
-            setHealthConnectPermissionsGranted(grantedPermissions.length > 0);
-          } else {
-            // Handle cases where the SDK is not available
-            Alert.alert(
-              'Health Connect Not Available',
-              'The Health Connect SDK is not available on this device. Please make sure you have the latest version of Health Connect installed.',
-            );
-          }
-        }
-      } catch (error) {
-        console.error('Error initializing Health Connect:', error);
-        // Handle errors gracefully
-      }
-    };
-
-    initHealthConnect();
-  }, []);
-
-  // Initialize AGiXTService (replace placeholders with your actual values)
-  useEffect(() => {
-    const initAgixtService = async () => {
-      const storedApiKey = await AsyncStorage.getItem('apiKey'); // Get API key from storage
-      const storedApiUri = await AsyncStorage.getItem('apiUri'); // Get API URI from storage
-
-      if (storedApiKey && storedApiUri && !isDemoMode) {
-        const service = new AGiXTService(isDemoMode);
-        service.updateSettings(storedApiUri, storedApiKey);
-        setAgixtService(service);
-      }
-    };
-      
-    initAgixtService();
-  }, [isDemoMode]);
-
-  // Register and manage the background task
-  useEffect(() => {
-    const registerBackgroundTask = async () => {
-      const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_FETCH_TASK);
-      if (!isRegistered) {
-        try {
-          await BackgroundFetch.registerTaskAsync(BACKGROUND_FETCH_TASK, {
-            minimumInterval: 15 * 60, // 15 minutes
-            stopOnTerminate: false,
-            startOnBoot: true,
-          });
-        } catch (error) {
-          console.error('Error registering background fetch task:', error);
-        }
-      }
-
-      return () => {
-        BackgroundFetch.unregisterTaskAsync(BACKGROUND_FETCH_TASK);
-      };
-    };
-
-    if (healthConnectAvailable && healthConnectPermissionsGranted) {
-      registerBackgroundTask();
-    }
-  }, [healthConnectAvailable, healthConnectPermissionsGranted]);
-
-  // *** Example UI for Displaying Recommendations ***
-  return (
-    <ErrorBoundary>
-      <SafeAreaView style={styles.container}>
-        {isDemoMode && (
-          <View style={styles.demoModeBanner}>
-            <Text style={styles.demoModeBannerText}>Demo Mode</Text>
-          </View>
-        )}
-        <NavigationContainer>
-          <Stack.Navigator initialRouteName={isFirstLaunch ? "Welcome" : "Main"}>
-            <Stack.Screen
-              name="Welcome"
-              component={WelcomeScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="WorkoutSelection"
-              options={{ headerShown: false }}
-            >
-              {(props) => (
-                <WorkoutSelectionScreen
-                  {...props}
-                  onComplete={handleWorkoutPreferencesComplete}
-                />
-              )}
-            </Stack.Screen>
-            <Stack.Screen name="Main" options={{ headerShown: false }}>
-              {() => (
-                <Tab.Navigator
-                  screenOptions={({ route }) => ({
-                    headerShown: false,
-                    tabBarIcon: ({ focused, color, size }) => {
-                      let iconName: any;
-
-                      if (route.name === 'Dashboard') {
-                        iconName = focused ? 'home' : 'home-outline';
-                      } else if (route.name === 'Workout') {
-                        iconName = focused ? 'fitness' : 'fitness-outline';
-                      } else if (route.name === 'Nutrition') {
-                        iconName = focused ? 'nutrition' : 'nutrition-outline';
-                      } else if (route.name === 'Progress') {
-                        iconName = focused ? 'trending-up' : 'trending-up-outline';
-                      } else if (route.name === 'Social') {
-                        iconName = focused ? 'people' : 'people-outline';
-                      }
-
-                      return <Ionicons name={iconName} size={size} color={color} />;
-                    },
-                    tabBarActiveTintColor: '#FFD700',
-                    tabBarInactiveTintColor: '#fff',
-                    tabBarStyle: styles.tabBar,
-                    backgroundColor: '#000',
-                    tabBarLabelStyle: styles.tabText,
-                  })}
-                >
-                  <Tab.Screen name="Dashboard">
-                    {(props) => (
-                      <DashboardTab
-                        {...props}
-                        userProfile={userProfile}
-                        workoutPlan={workoutPlan[0]}
-                        points={points}
-                        motivationalQuote={motivationalQuote}
-                        refreshQuote={refreshMotivationalQuote}
-                        onEditProfile={handleEditProfile}
-                        onOpenSettings={handleOpenSettings}
-                      />
-                    )}
-                  </Tab.Screen>
-
-                  <Tab.Screen name="Workout">
-                    {(props) => (
-                      <WorkoutTab
-                        {...props}
-                        workoutPlan={workoutPlan}
-                        onGenerateWorkout={(bodyPart) => {
-                          if (workoutPreferences) { // Check if workoutPreferences is not null
-                            generateWorkouts(workoutPreferences, bodyPart);
-                          }
-                        }}
-                        onCompleteWorkout={handleWorkoutCompletion}
-                        workoutPreferences={workoutPreferences}
-                      />
-                    )}
-                  </Tab.Screen>
-                  <Tab.Screen name="Nutrition">
-                    {(props) => (
-                      <NutritionTab
-                        {...props}
-                        mealPlan={mealPlan}
-                        onUpdateMealPlan={loadMealPlan}
-                      />
-                    )}
-                  </Tab.Screen>
-                  <Tab.Screen name="Progress">
-                    {(props) => (
-                      <ProgressTab
-                        {...props}
-                        bmiHistory={bmiHistory}
-                        progressReport={progressReport}
-                        onCalculateBMI={() => setBmiModalVisible(true)}
-                        onGenerateReport={getProgressReport}
-                      />
-                    )}
-                  </Tab.Screen>
-                  <Tab.Screen name="Social">
-                    {(props) => (
-                      <SocialTab
-                        {...props}
-                        socialChallenges={socialChallenges}
-                        onCreateChallenge={createSocialChallenge}
-                        onJoinChallenge={joinSocialChallenge}
-                      />
-                    )}
-                  </Tab.Screen>
-                </Tab.Navigator>
-              )}
-            </Stack.Screen>
-          </Stack.Navigator>
-        </NavigationContainer>
-
-        <AlertModal
-          visible={alertModalVisible}
-          title={alertTitle}
-          message={alertMessage}
-          onClose={() => setAlertModalVisible(false)}
-        />
-        <LoadingOverlay isVisible={loading} />
-
-        {/* Profile Modal */}
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={profileModalVisible}
-          onRequestClose={() => setProfileModalVisible(false)}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalHeader}>Edit Profile</Text>
-              <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
-                {userProfile.profileImage ? (
-                  <Image source={{ uri: userProfile.profileImage }} style={styles.profileImage} />
-                ) : (
-                  <Text style={styles.imagePickerText}>Upload Profile Picture</Text>
-                )}
-              </TouchableOpacity>
-              <ScrollView style={styles.inputScrollView}>
-                <Formik
-                  initialValues={userProfile}
-                  onSubmit={saveProfile}
-                  validationSchema={Yup.object().shape({
-                    name: Yup.string().required('Name is required'),
-                    age: Yup.number().required('Age is required').positive().integer(),
-                    gender: Yup.string().required('Gender is required'),
-                    feet: Yup.number().required('Height (feet) is required').positive().integer(),
-                    inches: Yup.number().required('Height (inches) is required').min(0).max(11).integer(),
-                    weight: Yup.number().required('Weight is required').positive(),
-                    goal: Yup.string().required('Fitness goal is required'),
-                    fitnessLevel: Yup.string().required('Fitness level is required'),
-                    daysPerWeek: Yup.number().required('Days per week is required').min(1).max(7).integer(),
-                    bio: Yup.string(),
-                    interests: Yup.string()
-                  })}
-                >
-                  {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
-                    <>
-                      {Object.keys(userProfile).map((key) => (
-                        <View key={key}>
-                          {key !== 'profileImage' && (
-                            <TextInput
-                              style={styles.input}
-                              placeholder={key.charAt(0).toUpperCase() + key.slice(1)}
-                              value={values[key as keyof UserProfile]?.toString()}
-                              onChangeText={handleChange(key)}
-                              onBlur={handleBlur(key)}
-                              placeholderTextColor="#ccc"
-                              keyboardType={key === 'age' || key === 'weight' || key === 'feet' || key === 'inches' || key === 'daysPerWeek' ? 'numeric' : 'default'}
-                            />
-                          )}
-                          {errors[key as keyof UserProfile] && touched[key as keyof UserProfile] && (
-                            <Text style={styles.errorText}>{errors[key as keyof UserProfile]}</Text>
-                          )}
-                        </View>
-                      ))}
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Workout Path (e.g., muscle builder, weight loss)"
-                        value={workoutPath}
-                        onChangeText={setWorkoutPath}
-                        placeholderTextColor="#ccc"
-                      />
-                      <TouchableOpacity style={styles.modalButton} onPress={() => handleSubmit()}>
-                        <Text style={styles.modalButtonText}>Save</Text>
-                      </TouchableOpacity>
-                    </>
-                  )}
-                </Formik>
-              </ScrollView>
-              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setProfileModalVisible(false)}>
-                <Text style={styles.modalButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-
-        {/* BMI Modal */}
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={bmiModalVisible}
-          onRequestClose={() => setBmiModalVisible(false)}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalHeader}>Calculate BMI</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Current Weight (lbs)"
-                value={currentWeight}
-                onChangeText={setCurrentWeight}
-                keyboardType="numeric"
-                placeholderTextColor="#ccc"
-              />
-              <TouchableOpacity style={styles.modalButton} onPress={calculateBMI}>
-                <Text style={styles.modalButtonText}>Calculate</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setBmiModalVisible(false)}>
-                <Text style={styles.modalButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-
-        {/* Settings Modal */}
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={settingsModalVisible}
-          onRequestClose={() => setSettingsModalVisible(false)}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalHeader}>AGiXT Settings</Text>
-              <View style={styles.demoModeSwitchContainer}>
-                <Text style={styles.demoModeSwitchText}>Demo Mode</Text>
-                <Switch
-                  value={isDemoMode}
-                  onValueChange={async (value) => {
-                    setIsDemoMode(value);
-                    await AsyncStorage.setItem('demoMode', value.toString());
-                    // You might want to reload the app or navigate to the welcome screen here
-                    // to fully switch between demo and normal modes.
-                  }}
-                  trackColor={{ false: '#767577', true: '#FFD700' }}
-                  thumbColor={isDemoMode ? '#f4f3f4' : '#f4f3f4'}
-                />
-              </View>
-              {!isDemoMode && (
-                <>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="API Key"
-                    value={apiKey}
-                    onChangeText={setApiKey}
-                    placeholderTextColor="#ccc"
-                    secureTextEntry
-                  />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="API URI"
-                    value={apiUri}
-                    onChangeText={setApiUri}
-                    placeholderTextColor="#ccc"
-                  />
-                </>
-              )}
-              <TouchableOpacity style={styles.modalButton} onPress={saveSettings}>
-                <Text style={styles.modalButtonText}>Save Settings</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setSettingsModalVisible(false)}>
-                <Text style={styles.modalButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-
-        {/* Feedback Modal */}
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={feedbackModalVisible}
-          onRequestClose={() => setFeedbackModalVisible(false)}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalHeader}>Workout Feedback</Text>
-              <Text style={styles.modalText}>How was your workout?</Text>
-              <TouchableOpacity style={styles.feedbackOption} onPress={() => handleWorkoutCompletion('easy')}>
-                <Text style={styles.feedbackOptionText}>Easy</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.feedbackOption} onPress={() => handleWorkoutCompletion('just right')}>
-                <Text style={styles.feedbackOptionText}>Just Right</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.feedbackOption} onPress={() => handleWorkoutCompletion('hard')}>
-                <Text style={styles.feedbackOptionText}>Hard</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setFeedbackModalVisible(false)}>
-                <Text style={styles.modalButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-
-        {/* Achievements Modal */}
-        <AchievementsModal
-          visible={achievementsModalVisible}
-          onClose={() => setAchievementsModalVisible(false)}
-          userProfile={userProfile}
-          achievements={achievements}
-        />
-
-        {/* Recommendation UI */}
-        <View style={styles.recommendationContainer}>
-          {workoutAnalysis && (
-            <Text style={styles.recommendationText}>
-              {workoutAnalysis.recommendation}
-            </Text>
-          )}
-        </View>
-
-      </SafeAreaView>
-    </ErrorBoundary>
-  );
+  } finally {
+    setLoading(false);
+  }
+}, [agixtService, userProfile, checkAchievementsAndUpdateState, showAlert, isDemoMode]);
+
+
+ const handleWorkoutPreferencesComplete = async (preferences: WorkoutPreferences) => {
+   setWorkoutPreferences(preferences);
+   setShowWorkoutSelection(false);
+   await generateWorkouts(preferences);
+ };
+
+ const calculateBMI = useCallback(() => {
+   if (isDemoMode) {
+     showAlert('Demo Mode', 'BMI calculation is simulated in demo mode.');
+     return;
+   }
+
+   if (!currentWeight || !userProfile.feet || !userProfile.inches) {
+     showAlert('Missing Information', 'Please ensure weight, feet, and inches are filled in.');
+     return;
+   }
+
+   const weightKg = parseFloat(currentWeight) * 0.453592;
+   const heightM = (parseInt(userProfile.feet, 10) * 12 + parseInt(userProfile.inches, 10)) * 0.0254; // Use radix for parseInt
+   const bmi = weightKg / (heightM * heightM);
+
+   const newBmiEntry = {
+     date: new Date().toISOString(),
+     bmi: parseFloat(bmi.toFixed(2)),
+   };
+
+   setBmiHistory(prevHistory => {
+     const newHistory = [...prevHistory, newBmiEntry];
+     AsyncStorage.setItem(isDemoMode ? 'demo_bmiHistory' : 'bmiHistory', JSON.stringify(newHistory));
+     return newHistory;
+   });
+
+   setCurrentWeight('');
+   setBmiModalVisible(false);
+   showAlert('BMI Calculated', `Your current BMI is ${newBmiEntry.bmi}`);
+
+   // Check for BMI improvement achievement
+   if (bmiHistory.length > 1) {
+     const previousBmi = bmiHistory[bmiHistory.length - 2].bmi;
+     if (newBmiEntry.bmi < previousBmi && !achievements[4].unlocked) {
+       const newAchievements = [...achievements];
+       newAchievements[4].unlocked = true;
+       setAchievements(newAchievements);
+       AsyncStorage.setItem(isDemoMode ? 'demo_achievements' : 'achievements', JSON.stringify(newAchievements));
+       showAlert('Achievement Unlocked', 'You improved your BMI!');
+       setPoints(prevPoints => {
+         const newPoints = prevPoints + 75;
+         AsyncStorage.setItem(isDemoMode ? 'demo_points' : 'points', newPoints.toString());
+         return newPoints;
+       });
+     }
+   }
+ }, [currentWeight, userProfile, bmiHistory, achievements, showAlert, isDemoMode]);
+
+ const createCustomExercise = useCallback(async () => {
+   if (isDemoMode) {
+     showAlert('Demo Mode', 'Adding custom exercises is simulated in demo mode.');
+     return;
+   }
+
+   if (!agixtService) return;
+   if (!customExerciseName || !customExerciseDescription) {
+     showAlert('Missing Information', 'Please provide both name and description for the custom exercise.');
+     return;
+   }
+
+   try {
+     setLoading(true);
+     const updatedExercises = await agixtService.addCustomExercise(userProfile, {
+       name: customExerciseName,
+       description: customExerciseDescription
+     });
+     setCustomExercises(updatedExercises);
+     setCustomExerciseName('');
+     setCustomExerciseDescription('');
+     setCustomExerciseModalVisible(false);
+     showAlert('Success', 'Custom exercise added successfully!');
+     setPoints(prevPoints => {
+       const newPoints = prevPoints + 15;
+       AsyncStorage.setItem('points', newPoints.toString());
+       return newPoints;
+     });
+   } catch (error) {
+     console.error('Error adding custom exercise:', error);
+     showAlert('Error', 'Failed to add custom exercise. Please try again.');
+   } finally {
+     setLoading(false);
+   }
+ }, [customExerciseName, customExerciseDescription, agixtService, userProfile, showAlert]);
+
+ const saveSettings = useCallback(async () => {
+   if (!apiKey.trim() || !apiUri.trim()) {
+     showAlert('Invalid Settings', 'Please enter both API Key and API URI.');
+     return;
+   }
+
+   try {
+     setLoading(true);
+     await AsyncStorage.setItem('apiKey', apiKey);
+     await AsyncStorage.setItem('apiUri', apiUri);
+
+     // Update demo mode based on the saved API URI
+     setIsDemoMode(apiUri === 'demo'); // Assuming 'demo' is the demo API URI
+
+     const newService = new AGiXTService(isDemoMode);
+     if (!isDemoMode) {
+       newService.updateSettings(apiUri, apiKey);
+       await newService.initializeWorkoutAgent();
+     }
+
+     setAgixtService(newService);
+     setSettingsModalVisible(false);
+     showAlert('Settings Saved', 'Your AGiXT settings have been updated and saved.');
+     initializeFeatures();
+   } catch (error) {
+     console.error('Error saving settings:', error);
+     showAlert('Error', 'Failed to save settings. Please try again.');
+   } finally {
+     setLoading(false);
+   }
+ }, [apiKey, apiUri, initializeFeatures, showAlert, isDemoMode]);
+
+ const saveProfile = useCallback(async () => {
+   await AsyncStorage.setItem(isDemoMode ? 'demo_userProfile' : 'userProfile', JSON.stringify(userProfile));
+   await AsyncStorage.setItem(isDemoMode ? 'demo_workoutPath' : 'workoutPath', workoutPath);
+   setIsFirstLaunch(false);
+   setProfileModalVisible(false);
+   showAlert('Profile Saved', 'Your profile has been updated successfully.');
+ }, [userProfile, workoutPath, showAlert, isDemoMode]);
+
+ const handleWorkoutCompletion = useCallback(async (difficulty: 'easy' | 'just right' | 'hard') => {
+   if (isDemoMode) {
+     showAlert('Demo Mode', 'Workout completion is simulated in demo mode.');
+     // You can add more specific demo feedback here if needed
+     return;
+   }
+
+   if (!workoutPlan.length || !agixtService) return;
+
+   const feedback: WorkoutFeedback = {
+     workoutId: workoutPlan[0].conversationName,
+     difficulty,
+     completedExercises: workoutPlan[0].workoutPlan.weeklyPlan[0].exercises.map(ex => ex.name),
+   };
+
+   setWorkoutFeedback(feedback);
+
+   try {
+     setLoading(true);
+     await agixtService.logWorkoutCompletion(userProfile, workoutPlan[0].workoutPlan, feedback);
+
+     // Update user profile
+     let updatedProfile = updateStreak(userProfile);
+     updatedProfile = addExperiencePoints(updatedProfile, 50);
+     updatedProfile = awardCoins(updatedProfile, 10);
+
+     // Check for new achievements
+     const newAchievements = checkAchievements(updatedProfile, { totalWorkouts: workoutsCompleted + 1 });
+     if (newAchievements.length > 0) {
+       updatedProfile = {
+         ...updatedProfile,
+         unlockedAchievements: [...updatedProfile.unlockedAchievements, ...newAchievements]
+       };
+       newAchievements.forEach(achievementId => {
+         const achievement = achievements.find(a => a.id === achievementId);
+         if (achievement) {
+           showAlert('Achievement Unlocked', `You've unlocked: ${achievement.name}`);
+         }
+       });
+     }
+
+     setUserProfile(updatedProfile);
+
+     // Instead of slicing, remove only the completed workout
+     const updatedWorkoutPlan = workoutPlan.filter((_, index) => index !== 0);
+     setWorkoutPlan(updatedWorkoutPlan);
+     await AsyncStorage.setItem('currentWorkoutPlan', JSON.stringify(updatedWorkoutPlan));
+
+     setWorkoutsCompleted(prevCompleted => prevCompleted + 1);
+
+     // Generate more workouts only if needed (e.g., below a threshold)
+     if (updatedWorkoutPlan.length < 2) { // Adjust the threshold as needed
+       await generateWorkouts(workoutPreferences!, selectedBodyPart); // Pass selectedBodyPart
+     }
+   } catch (error) {
+     console.error('Error logging workout completion:', error);
+     showAlert('Error', 'Failed to record workout feedback. Please try again.');
+   } finally {
+     setLoading(false);
+   }
+ }, [workoutPlan, agixtService, userProfile, generateWorkouts, workoutPreferences, showAlert, workoutsCompleted, achievements, selectedBodyPart, isDemoMode]);
+
+ const refreshMotivationalQuote = useCallback(async () => {
+   if (!agixtService) return;
+
+   try {
+     setLoading(true);
+     const quote = await agixtService.getMotivationalQuote();
+     setMotivationalQuote(quote);
+   } catch (error) {
+     console.error('Error refreshing motivational quote:', error);
+     showAlert('Error', 'Failed to get a new motivational quote. Please try again.');
+   } finally {
+     setLoading(false);
+   }
+ }, [agixtService, showAlert]);
+
+ const getProgressReport = useCallback(async () => {
+   if (!agixtService) return;
+
+   try {
+     setLoading(true);
+     const report = await agixtService.getProgressReport(userProfile, [], []);
+     setProgressReport(report);
+     showAlert('Progress Report', report.summary);
+   } catch (error) {
+     console.error('Error getting progress report:', error);
+     showAlert('Error', 'Failed to get your progress report. Please try again.');
+   } finally {
+     setLoading(false);
+   }
+ }, [agixtService, userProfile, showAlert]);
+
+ const completeChallenge = useCallback(async (challengeId: number) => {
+   if (isDemoMode) {
+     showAlert('Demo Mode', 'Completing challenges is simulated in demo mode.');
+     return;
+   }
+
+   const updatedChallenges = challenges.map(challenge =>
+     challenge.id === challengeId ? { ...challenge, completed: true } : challenge
+   );
+   setChallenges(updatedChallenges);
+   await AsyncStorage.setItem('challenges', JSON.stringify(updatedChallenges));
+
+   setPoints(prevPoints => {
+     const newPoints = prevPoints + 50;
+     AsyncStorage.setItem('points', newPoints.toString());
+     return newPoints;
+   });
+
+   // Check for challenge achievement
+   const completedChallenges = updatedChallenges.filter(c => c.completed).length;
+   if (completedChallenges >= 5 && !achievements[3].unlocked) {
+     const newAchievements = [...achievements];
+     newAchievements[3].unlocked = true;
+     setAchievements(newAchievements);
+     await AsyncStorage.setItem('achievements', JSON.stringify(newAchievements));
+     showAlert('Achievement Unlocked', 'You completed 5 challenges!');
+     setPoints(prevPoints => {
+       const newPoints = prevPoints + 100;
+       AsyncStorage.setItem('points', newPoints.toString());
+       return newPoints;
+     });
+   }
+
+   showAlert('Challenge Completed', 'Congratulations! You\'ve completed a challenge.');
+ }, [challenges, achievements, showAlert]);
+
+ const createSocialChallenge = useCallback(async (challengeDetails: Partial<SocialChallenge>) => {
+   if (isDemoMode) {
+     showAlert('Demo Mode', 'Creating social challenges is simulated in demo mode.');
+     return;
+   }
+
+   if (!agixtService) return;
+   try {
+     setLoading(true);
+     const newChallenge = await agixtService.createSocialChallenge(userProfile, challengeDetails);
+     setSocialChallenges(prev => [...prev, newChallenge]);
+     showAlert('Success', 'Social challenge created successfully!');
+   } catch (error) {
+     console.error('Error creating social challenge:', error);
+     showAlert('Error', 'Failed to create social challenge. Please try again.');
+   } finally {
+     setLoading(false);
+   }
+ }, [agixtService, userProfile, showAlert]);
+
+ const joinSocialChallenge = useCallback(async (challengeId: string) => {
+   if (isDemoMode) {
+     showAlert('Demo Mode', 'Joining social challenges is simulated in demo mode.');
+     return;
+   }
+
+   if (!agixtService) return;
+   try {
+     setLoading(true);
+     const updatedChallenge = await agixtService.joinSocialChallenge(userProfile, challengeId);
+     setSocialChallenges(prev => prev.map(c => c.id === challengeId ? updatedChallenge : c));
+     showAlert('Success', 'You have joined the social challenge!');
+   } catch (error) {
+     console.error('Error joining social challenge:', error);
+     showAlert('Error', 'Failed to join social challenge. Please try again.');
+   } finally {
+     setLoading(false);
+   }
+ }, [agixtService, userProfile, showAlert]);
+
+ // Function to filter workout-like activities (updated)
+ const filterWorkouts = (records: any[]): any[] => {
+   // Implement your filtering logic based on available data
+   // For example, filter by duration or other relevant criteria
+   const workoutActivities = records.filter(record => {
+     // Example: Filter records with duration greater than 5 minutes
+     return record.duration > 300000;
+   });
+   return workoutActivities;
+ };
+
+ // Background task to fetch and process activities (updated)
+ const backgroundTask = async () => {
+   if (isDemoMode) {
+     return BackgroundFetch.BackgroundFetchResult.NoData;
+   }
+
+   try {
+     if (!healthConnectAvailable || !healthConnectPermissionsGranted) {
+       console.warn('Health Connect is not available or permissions are not granted.');
+       return BackgroundFetch.BackgroundFetchResult.NoData; // Corrected
+     }
+
+     const now = new Date();
+     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000); // 1 hour ago
+
+     const options: ReadRecordsOptions = {
+       timeRangeFilter: {
+         operator: 'between',
+         startTime: oneHourAgo.toISOString(),
+         endTime: now.toISOString(),
+       }
+     };
+
+     const stepsData = await HealthConnect.readRecords('Steps', options); // Corrected
+
+     const allRecords = [...stepsData.records];
+     const workouts = filterWorkouts(allRecords);
+
+     if (workouts.length > 0 && agixtService) {
+       try {
+         const analysis = await agixtService.analyzeWorkouts(workouts);
+         setWorkoutAnalysis(analysis);
+
+         if (analysis.warning) {
+           showAlert('Workout Recommendation', analysis.recommendation);
+         }
+       } catch (error) {
+         console.error('Error analyzing workouts:', error);
+       }
+     }
+
+     return BackgroundFetch.BackgroundFetchResult.NewData; // Corrected
+   } catch (error) {
+     console.error('Error in background task:', error);
+     return BackgroundFetch.BackgroundFetchResult.Failed; // Corrected
+   }
+ };
+
+ // Initialize Health Connect and request permissions
+ useEffect(() => {
+   const initHealthConnect = async () => {
+     try {
+       const isAvailable = await HealthConnect.initialize();
+       setHealthConnectAvailable(isAvailable);
+
+       if (isAvailable) {
+         const status = await HealthConnect.getSdkStatus();
+         if (status === SdkAvailabilityStatus.SDK_AVAILABLE) {
+           const grantedPermissions = await HealthConnect.requestPermission([
+             {
+               accessType: 'read',
+               recordType: 'Steps', // Corrected
+             },
+             // ... request permissions for other record types
+           ]);
+           setHealthConnectPermissionsGranted(grantedPermissions.length > 0);
+         } else {
+           // Handle cases where the SDK is not available
+           Alert.alert(
+             'Health Connect Not Available',
+             'The Health Connect SDK is not available on this device. Please make sure you have the latest version of Health Connect installed.',
+           );
+         }
+       }
+     } catch (error) {
+       console.error('Error initializing Health Connect:', error);
+       // Handle errors gracefully
+     }
+   };
+
+   initHealthConnect();
+ }, []);
+
+ // Initialize AGiXTService (replace placeholders with your actual values)
+ useEffect(() => {
+   const initAgixtService = async () => {
+     const storedApiKey = await AsyncStorage.getItem('apiKey'); // Get API key from storage
+     const storedApiUri = await AsyncStorage.getItem('apiUri'); // Get API URI from storage
+
+     if (storedApiKey && storedApiUri && !isDemoMode) {
+       const service = new AGiXTService(isDemoMode);
+       service.updateSettings(storedApiUri, storedApiKey);
+       setAgixtService(service);
+     }
+   };
+     
+   initAgixtService();
+ }, [isDemoMode]);
+
+ // Register and manage the background task
+ useEffect(() => {
+   const registerBackgroundTask = async () => {
+     const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_FETCH_TASK);
+     if (!isRegistered) {
+       try {
+         await BackgroundFetch.registerTaskAsync(BACKGROUND_FETCH_TASK, {
+           minimumInterval: 15 * 60, // 15 minutes
+           stopOnTerminate: false,
+           startOnBoot: true,
+         });
+       } catch (error) {
+         console.error('Error registering background fetch task:', error);
+       }
+     }
+
+     return () => {
+       BackgroundFetch.unregisterTaskAsync(BACKGROUND_FETCH_TASK);
+     };
+   };
+
+   if (healthConnectAvailable && healthConnectPermissionsGranted) {
+     registerBackgroundTask();
+   }
+ }, [healthConnectAvailable, healthConnectPermissionsGranted]);
+
+ // *** Example UI for Displaying Recommendations ***
+ return (
+   <ErrorBoundary>
+     <SafeAreaView style={styles.container}>
+       {isDemoMode && (
+         <View style={styles.demoModeBanner}>
+           <Text style={styles.demoModeBannerText}>Demo Mode</Text>
+         </View>
+       )}
+       <NavigationContainer>
+         <Stack.Navigator initialRouteName={isFirstLaunch ? "Welcome" : "Main"}>
+           <Stack.Screen
+             name="Welcome"
+             component={WelcomeScreen}
+             options={{ headerShown: false }}
+           />
+           <Stack.Screen
+             name="WorkoutSelection"
+             options={{ headerShown: false }}
+           >
+             {(props) => (
+               <WorkoutSelectionScreen
+                 {...props}
+                 onComplete={handleWorkoutPreferencesComplete}
+               />
+             )}
+           </Stack.Screen>
+           <Stack.Screen name="Main" options={{ headerShown: false }}>
+             {() => (
+               <Tab.Navigator
+                 screenOptions={({ route }) => ({
+                   headerShown: false,
+                   tabBarIcon: ({ focused, color, size }) => {
+                     let iconName: any;
+
+                     if (route.name === 'Dashboard') {
+                       iconName = focused ? 'home' : 'home-outline';
+                     } else if (route.name === 'Workout') {
+                       iconName = focused ? 'fitness' : 'fitness-outline';
+                     } else if (route.name === 'Nutrition') {
+                       iconName = focused ? 'nutrition' : 'nutrition-outline';
+                     } else if (route.name === 'Progress') {
+                       iconName = focused ? 'trending-up' : 'trending-up-outline';
+                     } else if (route.name === 'Social') {
+                       iconName = focused ? 'people' : 'people-outline';
+                     }
+
+                     return <Ionicons name={iconName} size={size} color={color} />;
+                   },
+                   tabBarActiveTintColor: '#FFD700',
+                   tabBarInactiveTintColor: '#fff',
+                   tabBarStyle: styles.tabBar,
+                   backgroundColor: '#000',
+                   tabBarLabelStyle: styles.tabText,
+                 })}
+               >
+                 <Tab.Screen name="Dashboard">
+                   {(props) => (
+                     <DashboardTab
+                       {...props}
+                       userProfile={userProfile}
+                       workoutPlan={workoutPlan[0]}
+                       points={points}
+                       motivationalQuote={motivationalQuote}
+                       refreshQuote={refreshMotivationalQuote}
+                       onEditProfile={handleEditProfile}
+                       onOpenSettings={handleOpenSettings}
+                     />
+                   )}
+                 </Tab.Screen>
+
+                 <Tab.Screen name="Workout">
+                   {(props) => (
+                     <WorkoutTab
+                       {...props}
+                       workoutPlan={workoutPlan}
+                       onGenerateWorkout={(bodyPart) => {
+                         if (workoutPreferences) { // Check if workoutPreferences is not null
+                           generateWorkouts(workoutPreferences, bodyPart);
+                         }
+                       }}
+                       onCompleteWorkout={handleWorkoutCompletion}
+                       workoutPreferences={workoutPreferences}
+                     />
+                   )}
+                 </Tab.Screen>
+                 <Tab.Screen name="Nutrition">
+                   {(props) => (
+                     <NutritionTab
+                       {...props}
+                       mealPlan={mealPlan}
+                       onUpdateMealPlan={loadMealPlan}
+                     />
+                   )}
+                 </Tab.Screen>
+                 <Tab.Screen name="Progress">
+                   {(props) => (
+                     <ProgressTab
+                       {...props}
+                       bmiHistory={bmiHistory}
+                       progressReport={progressReport}
+                       onCalculateBMI={() => setBmiModalVisible(true)}
+                       onGenerateReport={getProgressReport}
+                     />
+                   )}
+                 </Tab.Screen>
+                 <Tab.Screen name="Social">
+                   {(props) => (
+                     <SocialTab
+                       {...props}
+                       socialChallenges={socialChallenges}
+                       onCreateChallenge={createSocialChallenge}
+                       onJoinChallenge={joinSocialChallenge}
+                     />
+                   )}
+                 </Tab.Screen>
+               </Tab.Navigator>
+             )}
+           </Stack.Screen>
+         </Stack.Navigator>
+       </NavigationContainer>
+
+       <AlertModal
+         visible={alertModalVisible}
+         title={alertTitle}
+         message={alertMessage}
+         onClose={() => setAlertModalVisible(false)}
+       />
+       <LoadingOverlay isVisible={loading} />
+
+       {/* Profile Modal */}
+       <Modal
+         animationType="slide"
+         transparent={true}
+         visible={profileModalVisible}
+         onRequestClose={() => setProfileModalVisible(false)}
+       >
+         <View style={styles.modalContainer}>
+           <View style={styles.modalContent}>
+             <Text style={styles.modalHeader}>Edit Profile</Text>
+             <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
+               {userProfile.profileImage ? (
+                 <Image source={{ uri: userProfile.profileImage }} style={styles.profileImage} />
+               ) : (
+                 <Text style={styles.imagePickerText}>Upload Profile Picture</Text>
+               )}
+             </TouchableOpacity>
+             <ScrollView style={styles.inputScrollView}>
+               <Formik
+                 initialValues={userProfile}
+                 onSubmit={saveProfile}
+                 validationSchema={Yup.object().shape({
+                   name: Yup.string().required('Name is required'),
+                   age: Yup.number().required('Age is required').positive().integer(),
+                   gender: Yup.string().required('Gender is required'),
+                   feet: Yup.number().required('Height (feet) is required').positive().integer(),
+                  inches: Yup.number().required('Height (inches) is required').min(0).max(11).integer(),
+                   weight: Yup.number().required('Weight is required').positive(),
+                   goal: Yup.string().required('Fitness goal is required'),
+                   fitnessLevel: Yup.string().required('Fitness level is required'),
+                   daysPerWeek: Yup.number().required('Days per week is required').min(1).max(7).integer(),
+                   bio: Yup.string(),
+                   interests: Yup.string()
+                 })}
+               >
+                 {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
+                   <>
+                     {Object.keys(userProfile).map((key) => (
+                       <View key={key}>
+                         {key !== 'profileImage' && (
+                           <TextInput
+                             style={styles.input}
+                             placeholder={key.charAt(0).toUpperCase() + key.slice(1)}
+                             value={values[key as keyof UserProfile]?.toString()}
+                             onChangeText={handleChange(key)}
+                             onBlur={handleBlur(key)}
+                             placeholderTextColor="#ccc"
+                             keyboardType={key === 'age' || key === 'weight' || key === 'feet' || key === 'inches' || key === 'daysPerWeek' ? 'numeric' : 'default'}
+                           />
+                         )}
+                         {errors[key as keyof UserProfile] && touched[key as keyof UserProfile] && (
+                           <Text style={styles.errorText}>{errors[key as keyof UserProfile]}</Text>
+                         )}
+                       </View>
+                     ))}
+                     <TextInput
+                       style={styles.input}
+                       placeholder="Workout Path (e.g., muscle builder, weight loss)"
+                       value={workoutPath}
+                       onChangeText={setWorkoutPath}
+                       placeholderTextColor="#ccc"
+                     />
+                     <TouchableOpacity style={styles.modalButton} onPress={() => handleSubmit()}>
+                       <Text style={styles.modalButtonText}>Save</Text>
+                     </TouchableOpacity>
+                   </>
+                 )}
+               </Formik>
+             </ScrollView>
+             <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setProfileModalVisible(false)}>
+               <Text style={styles.modalButtonText}>Cancel</Text>
+             </TouchableOpacity>
+           </View>
+         </View>
+       </Modal>
+
+       {/* BMI Modal */}
+       <Modal
+         animationType="slide"
+         transparent={true}
+         visible={bmiModalVisible}
+         onRequestClose={() => setBmiModalVisible(false)}
+       >
+         <View style={styles.modalContainer}>
+           <View style={styles.modalContent}>
+             <Text style={styles.modalHeader}>Calculate BMI</Text>
+             <TextInput
+               style={styles.input}
+               placeholder="Current Weight (lbs)"
+               value={currentWeight}
+               onChangeText={setCurrentWeight}
+               keyboardType="numeric"
+               placeholderTextColor="#ccc"
+             />
+             <TouchableOpacity style={styles.modalButton} onPress={calculateBMI}>
+               <Text style={styles.modalButtonText}>Calculate</Text>
+             </TouchableOpacity>
+             <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setBmiModalVisible(false)}>
+               <Text style={styles.modalButtonText}>Cancel</Text>
+             </TouchableOpacity>
+           </View>
+         </View>
+       </Modal>
+
+       {/* Settings Modal */}
+       <Modal
+         animationType="slide"
+         transparent={true}
+         visible={settingsModalVisible}
+         onRequestClose={() => setSettingsModalVisible(false)}
+       >
+         <View style={styles.modalContainer}>
+           <View style={styles.modalContent}>
+             <Text style={styles.modalHeader}>AGiXT Settings</Text>
+             <View style={styles.demoModeSwitchContainer}>
+               <Text style={styles.demoModeSwitchText}>Demo Mode</Text>
+               <Switch
+                 value={isDemoMode}
+                 onValueChange={async (value) => {
+                   setIsDemoMode(value);
+                   await AsyncStorage.setItem('demoMode', value.toString());
+                   // You might want to reload the app or navigate to the welcome screen here
+                   // to fully switch between demo and normal modes.
+                 }}
+                 trackColor={{ false: '#767577', true: '#FFD700' }}
+                 thumbColor={isDemoMode ? '#f4f3f4' : '#f4f3f4'}
+               />
+             </View>
+             {!isDemoMode && (
+               <>
+                 <TextInput
+                   style={styles.input}
+                   placeholder="API Key"
+                   value={apiKey}
+                   onChangeText={setApiKey}
+                   placeholderTextColor="#ccc"
+                   secureTextEntry
+                 />
+                 <TextInput
+                   style={styles.input}
+                   placeholder="API URI"
+                   value={apiUri}
+                   onChangeText={setApiUri}
+                   placeholderTextColor="#ccc"
+                 />
+               </>
+             )}
+             <TouchableOpacity style={styles.modalButton} onPress={saveSettings}>
+               <Text style={styles.modalButtonText}>Save Settings</Text>
+             </TouchableOpacity>
+             <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setSettingsModalVisible(false)}>
+               <Text style={styles.modalButtonText}>Cancel</Text>
+             </TouchableOpacity>
+           </View>
+         </View>
+       </Modal>
+
+       {/* Feedback Modal */}
+       <Modal
+         animationType="slide"
+         transparent={true}
+         visible={feedbackModalVisible}
+         onRequestClose={() => setFeedbackModalVisible(false)}
+       >
+         <View style={styles.modalContainer}>
+           <View style={styles.modalContent}>
+             <Text style={styles.modalHeader}>Workout Feedback</Text>
+             <Text style={styles.modalText}>How was your workout?</Text>
+             <TouchableOpacity style={styles.feedbackOption} onPress={() => handleWorkoutCompletion('easy')}>
+               <Text style={styles.feedbackOptionText}>Easy</Text>
+             </TouchableOpacity>
+             <TouchableOpacity style={styles.feedbackOption} onPress={() => handleWorkoutCompletion('just right')}>
+               <Text style={styles.feedbackOptionText}>Just Right</Text>
+             </TouchableOpacity>
+             <TouchableOpacity style={styles.feedbackOption} onPress={() => handleWorkoutCompletion('hard')}>
+               <Text style={styles.feedbackOptionText}>Hard</Text>
+             </TouchableOpacity>
+             <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setFeedbackModalVisible(false)}>
+               <Text style={styles.modalButtonText}>Cancel</Text>
+             </TouchableOpacity>
+           </View>
+         </View>
+       </Modal>
+
+       {/* Achievements Modal */}
+       <AchievementsModal
+         visible={achievementsModalVisible}
+         onClose={() => setAchievementsModalVisible(false)}
+         userProfile={userProfile}
+         achievements={achievements}
+       />
+
+       {/* Recommendation UI */}
+       <View style={styles.recommendationContainer}>
+         {workoutAnalysis && (
+           <Text style={styles.recommendationText}>
+             {workoutAnalysis.recommendation}
+           </Text>
+         )}
+       </View>
+
+     </SafeAreaView>
+   </ErrorBoundary>
+ );
 };
-           
-           
-           // Styles
-           const styles = StyleSheet.create({
-             container: {
-               flex: 1,
-               backgroundColor: '#000',
-             },
-             gradient: {
-               // Stretch the gradient to the bottom
-               position: 'absolute',
-               top: 0,
-               left: 0,
-               right: 0,
-               bottom: 0,
-               padding: 20,
-               flex: 1,
-             },
-             header: {
-               flexDirection: 'row',
-               justifyContent: 'space-between',
-               alignItems: 'center',
-               paddingHorizontal: 20,
-               paddingTop: 20,
-               paddingBottom: 10,
-               backgroundColor: '#1a1a1a',
-             },
-             profileImage: {
-               width: 40,
-               height: 40,
-               borderRadius: 20,
-               borderWidth: 2,
-               borderColor: '#FFD700',
-             },
-             headerTitle: {
-               fontSize: 24,
-               fontWeight: 'bold',
-               color: '#FFD700',
-             },
-             content: {
-               flex: 1,
-               backgroundColor: '#000',
-             },
-             tabBar: {
-               flexDirection: 'row',
-               justifyContent: 'space-around',
-               paddingVertical: 10,
-               borderTopWidth: 1,
-               borderTopColor: '#333',
-               backgroundColor: '#1a1a1a',
-             },
-             tabItem: {
-               alignItems: 'center',
-             },
-             tabText: {
-               color: '#FFD700',
-               fontSize: 12,
-               marginTop: 4,
-             },
-             activeTabText: {
-               color: '#FFA500',
-             },
-             modalContainer: {
-               flex: 1,
-               justifyContent: 'center',
-               alignItems: 'center',
-               backgroundColor: 'rgba(0, 0, 0, 0.9)',
-             },
-             modalContent: {
-               backgroundColor: '#1a1a1a',
-               borderRadius: 10,
-               padding: 20,
-               width: '80%',
-               maxHeight: '80%',
-             },
-             modalHeader: {
-               fontSize: 24,
-               fontWeight: 'bold',
-               color: '#FFD700',
-               marginBottom: 20,
-               textAlign: 'center',
-             },
-             input: {
-               backgroundColor: '#333',
-               borderRadius: 5,
-               padding: 10,
-               marginBottom: 10,
-               color: '#fff',
-             },
-             modalButton: {
-               backgroundColor: '#FFD700',
-               padding: 15,
-               borderRadius: 5,
-               alignItems: 'center',
-               marginTop: 20,
-             },
-             modalButtonText: {
-               color: '#000',
-               fontWeight: 'bold',
-               fontSize: 16,
-             },
-             cancelButton: {
-               backgroundColor: '#FF6347',
-               marginTop: 10,
-             },
-             imagePicker: {
-               backgroundColor: '#333',
-               borderRadius: 10,
-               padding: 20,
-               alignItems: 'center',
-               marginBottom: 20,
-             },
-             imagePickerText: {
-               color: '#FFD700',
-               fontSize: 16,
-             },
-             inputScrollView: {
-               maxHeight: 300,
-             },
-             errorText: {
-               color: '#FF6347',
-               fontSize: 12,
-               marginBottom: 5,
-             },
-             workoutCard: {
-               backgroundColor: '#1a1a1a',
-               borderRadius: 15,
-               padding: 20,
-               marginBottom: 20,
-               shadowColor: '#000',
-               shadowOffset: { width: 0, height: 2 },
-               shadowOpacity: 0.3,
-               shadowRadius: 5,
-               elevation: 5,
-             },
-             startButton: {
-               backgroundColor: '#FFD700',
-               padding: 15,
-               borderRadius: 10,
-               alignItems: 'center',
-               marginTop: 15,
-               shadowColor: '#FFA500',
-               shadowOffset: { width: 0, height: 2 },
-               shadowOpacity: 0.5,
-               shadowRadius: 3,
-               elevation: 3,
-             },
-             quoteCard: {
-               backgroundColor: '#1a1a1a',
-               borderRadius: 15,
-               padding: 20,
-               marginBottom: 20,
-               shadowColor: '#000',
-               shadowOffset: { width: 0, height: 2 },
-               shadowOpacity: 0.3,
-               shadowRadius: 5,
-               elevation: 5,
-             },
-             optionButton: {
-               flexDirection: 'row',
-               justifyContent: 'space-between',
-               alignItems: 'center',
-               backgroundColor: '#333',
-               padding: 15,
-               borderRadius: 10,
-               marginBottom: 10,
-               shadowColor: '#000',
-               shadowOffset: { width: 0, height: 2 },
-               shadowOpacity: 0.2,
-               shadowRadius: 3,
-               elevation: 3,
-             },
-             selectedOption: {
-               backgroundColor: '#4a4a4a',
-             },
-             generateWorkoutButton: {
-               backgroundColor: '#FFD700',
-               padding: 15,
-               borderRadius: 10,
-               alignItems: 'center',
-               marginTop: 20,
-               shadowColor: '#FFA500',
-               shadowOffset: { width: 0, height: 2 },
-               shadowOpacity: 0.5,
-               shadowRadius: 3,
-               elevation: 3,
-             },
-             completeWorkoutButton: {
-               backgroundColor: '#FFD700',
-               padding: 15,
-               borderRadius: 5,
-               alignItems: 'center',
-               marginTop: 20,
-             },
-             generateMealPlanButton: {
-               backgroundColor: '#FFD700',
-               padding: 15,
-               borderRadius: 5,
-               alignItems: 'center',
-             },
-             calculateBMIButton: {
-               backgroundColor: '#FFD700',
-               padding: 15,
-               borderRadius: 5,
-               alignItems: 'center',
-               marginBottom: 20,
-             },
-             generateReportButton: {
-               backgroundColor: '#FFD700',
-               padding: 15,
-               borderRadius: 5,
-               alignItems: 'center',
-               marginBottom: 20,
-             },
-             refreshChallengesButton: {
-               backgroundColor: '#FFD700',
-               padding: 15,
-               borderRadius: 5,
-               alignItems: 'center',
-               marginTop: 20,
-             },
-             feedbackOption: {
-               backgroundColor: '#333',
-               padding: 15,
-               borderRadius: 5,
-               alignItems: 'center',
-               marginBottom: 10,
-               shadowColor: '#000',
-               shadowOffset: { width: 0, height: 2 },
-               shadowOpacity: 0.2,
-               shadowRadius: 3,
-               elevation: 3,
-             },
-             levelProgressContainer: {
-               marginTop: 10,
-               alignItems: 'center',
-             },
-             levelText: {
-               color: '#FFD700',
-               fontSize: 18,
-               fontWeight: 'bold',
-             },
-             progressBar: {
-               width: '100%',
-               height: 10,
-               backgroundColor: '#333',
-               borderRadius: 5,
-               marginTop: 5,
-               overflow: 'hidden',
-             },
-             progressFill: {
-               height: '100%',
-               backgroundColor: '#FFD700',
-             },
-             xpText: {
-               color: '#fff',
-               fontSize: 14,
-               marginTop: 5,
-             },
-             achievementItem: {
-               flexDirection: 'row',
-               alignItems: 'center',
-               backgroundColor: '#333',
-               padding: 10,
-               borderRadius: 5,
-               marginBottom: 10,
-             },
-             achievementIcon: {
-               width: 40,
-               height: 40,
-               marginRight: 10,
-             },
-             achievementInfo: {
-               flex: 1,
-             },
-             achievementName: {
-               color: '#FFD700',
-               fontSize: 16,
-               fontWeight: 'bold',
-             },
-             achievementDescription: {
-               color: '#fff',
-               fontSize: 14,
-             },
-             closeButton: {
-               backgroundColor: '#FFD700',
-               padding: 10,
-               borderRadius: 5,
-               alignItems: 'center',
-               marginTop: 20,
-             },
-             closeButtonText: {
-               color: '#000',
-               fontSize: 16,
-               fontWeight: 'bold',
-             },
-             dashboardContainer: {
-               flex: 1,
-               backgroundColor: '#000',
-             },
-             topSection: {
-               alignItems: 'center',
-               marginBottom: 30,
-             },
-             userName: {
-               fontSize: 28,
-               fontWeight: 'bold',
-               color: '#FFD700',
-               marginTop: 10,
-             },
-             points: {
-               fontSize: 18,
-               color: '#FFD700',
-               marginTop: 5,
-             },
-             cardTitle: {
-               fontSize: 20,
-               fontWeight: 'bold',
-               color: '#FFD700',
-               marginBottom: 10,
-             },
-             workoutName: {
-               fontSize: 18,
-               color: '#fff',
-               marginBottom: 15,
-             },
-             startButtonText: {
-               color: '#000',
-               fontSize: 16,
-               fontWeight: 'bold',
-             },
-             quoteText: {
-               color: '#FFD700',
-               fontSize: 16,
-               fontStyle: 'italic',
-               textAlign: 'center',
-               marginBottom: 10,
-             },
-             refreshButton: {
-               padding: 10,
-               alignSelf: 'center',
-             },
-             animation: {
-               width: 25, // or 40 for an even smaller animation
-               height: 25, // or 40 for an even smaller animation
-               alignSelf: 'center',
-             },
-             tabContent: {
-               flex: 1,
-               padding: 20,
-               backgroundColor: '#000',
-             },
-             tabTitle: {
-               fontSize: 24,
-               fontWeight: 'bold',
-               color: '#FFD700',
-               marginBottom: 20,
-             },
-             workoutTabContent: {
-               flexGrow: 1,
-               padding: 20,
-               backgroundColor: '#000',
-             },
-             exerciseItem: {
-               marginBottom: 10,
-             },
-             exerciseName: {
-               color: '#FFD700',
-               fontSize: 18,
-               fontWeight: 'bold',
-               marginBottom: 5,
-             },
-             exerciseDetail: {
-               color: '#fff',
-               fontSize: 14,
-             },
-             completeWorkoutButtonText: {
-               color: '#000',
-               fontWeight: 'bold',
-               fontSize: 16,
-             },
-             generateWorkoutButtonText: {
-               color: '#000',
-               fontWeight: 'bold',
-               fontSize: 16,
-             },
-             mealPlanContainer: {
-               backgroundColor: '#1a1a1a',
-               borderRadius: 10,
-               padding: 15,
-               marginBottom: 20,
-             },
-             mealTitle: {
-               color: '#FFD700',
-               fontSize: 18,
-               fontWeight: 'bold',
-               marginBottom: 5,
-             },
-             mealContent: {
-               color: '#fff',
-               marginBottom: 10,
-             },
-             updateMealPlanButton: {
-               backgroundColor: '#FFD700',
-               padding: 15,
-               borderRadius: 5,
-               alignItems: 'center',
-               marginTop: 20,
-             },
-             updateMealPlanButtonText: {
-               color: '#000',
-               fontWeight: 'bold',
-               fontSize: 16,
-             },
-             generateMealPlanButtonText: {
-               color: '#000',
-               fontWeight: 'bold',
-               fontSize: 16,
-             },
-             bmiChartContainer: {
-               backgroundColor: '#1a1a1a',
-               borderRadius: 10,
-               padding: 15,
-               marginBottom: 20,
-             },
-             chart: {
-               marginVertical: 8,
-               borderRadius: 16,
-             },
-             calculateBMIButtonText: {
-               color: '#000',
-               fontWeight: 'bold',
-               fontSize: 16,
-             },
-             generateReportButtonText: {
-               color: '#000',
-               fontWeight: 'bold',
-               fontSize: 16,
-             },
-             progressReportContainer: {
-               backgroundColor: '#1a1a1a',
-               borderRadius: 10,
-               padding: 15,
-               marginBottom: 20,
-             },
-             progressReportContent: {
-               color: '#fff',
-             },
-             challengeItem: {
-               backgroundColor: '#1a1a1a',
-               borderRadius: 10,
-               padding: 15,
-               marginBottom: 15,
-             },
-             challengeName: {
-               fontSize: 18,
-               fontWeight: 'bold',
-               color: '#FFD700',
-               marginBottom: 5,
-             },
-             challengeDescription: {
-               color: '#fff',
-               marginBottom: 10,
-             },
-             challengeDuration: {
-               color: '#ccc',
-             },
-             challengeDifficulty: {
-               color: '#ccc',
-               marginBottom: 10,
-             },
-             challengeButton: {
-               backgroundColor: '#FFD700',
-               padding: 10,
-               borderRadius: 5,
-               alignItems: 'center',
-             },
-             challengeCompleted: {
-               backgroundColor: '#4CAF50',
-             },
-             challengeButtonText: {
-               color: '#000',
-               fontWeight: 'bold',
-             },
-             refreshChallengesButtonText: {
-               color: '#000',
-               fontWeight: 'bold',
-               fontSize: 16,
-             },
-             loadingOverlay: {
-               ...StyleSheet.absoluteFillObject,
-               backgroundColor: 'rgba(0, 0, 0, 0.7)',
-               justifyContent: 'center',
-               alignItems: 'center',
-             },
-             alertModalContainer: {
-               flex: 1,
-               justifyContent: 'center',
-               alignItems: 'center',
-               backgroundColor: 'rgba(0, 0, 0, 0.5)',
-             },
-             alertModalContent: {
-               backgroundColor: '#1a1a1a',
-               borderRadius: 10,
-               padding: 20,
-               alignItems: 'center',
-               width: '80%',
-             },
-             alertModalTitle: {
-               fontSize: 20,
-               fontWeight: 'bold',
-               color: '#FFD700',
-               marginBottom: 10,
-             },
-             alertModalMessage: {
-               color: '#fff',
-               textAlign: 'center',
-               marginBottom: 20,
-             },
-             alertModalButton: {
-               backgroundColor: '#FFD700',
-               padding: 10,
-               borderRadius: 5,
-               width: '100%',
-               alignItems: 'center',
-             },
-             alertModalButtonText: {
-               color: '#000',
-               fontWeight: 'bold',
-             },
-             errorContainer: {
-               flex: 1,
-               justifyContent: 'center',
-               alignItems: 'center',
-               backgroundColor: '#000',
-             },
-             modalText: {
-               color: '#fff',
-               fontSize: 16,
-               marginBottom: 15,
-             },
-             feedbackOptionText: {
-               color: '#FFD700',
-               fontSize: 16,
-             },
-             workoutList: {
-               maxHeight: 200,
-               marginTop: 20,
-             },
-             sectionTitle: {
-               fontSize: 20,
-               fontWeight: 'bold',
-               color: '#FFD700',
-               marginBottom: 15,
-             },
-             progressReportSubtitle: {
-               fontSize: 18,
-               fontWeight: 'bold',
-               color: '#FFD700',
-               marginTop: 10,
-               marginBottom: 5,
-             },
-             challengeDates: {
-               color: '#ccc',
-               marginBottom: 10,
-             },
-             joinButton: {
-               backgroundColor: '#FFD700',
-               padding: 10,
-               borderRadius: 5,
-               alignItems: 'center',
-             },
-             joinButtonText: {
-               color: '#000',
-               fontWeight: 'bold',
-             },
-             createChallengeButton: {
-               backgroundColor: '#FFD700',
-               padding: 15,
-               borderRadius: 5,
-               alignItems: 'center',
-               marginTop: 20,
-             },
-             createChallengeButtonText: {
-               color: '#000',
-               fontWeight: 'bold',
-               fontSize: 16,
-             },
-             welcomeContainer: {
-               flex: 1,
-               justifyContent: 'center',
-               alignItems: 'center',
-               backgroundColor: '#000',
-             },
-             welcomeTitle: {
-               fontSize: 36,
-               fontWeight: 'bold',
-               color: '#FFD700',
-               marginBottom: 30,
-               textAlign: 'center',
-             },
-             welcomeAnimation: {
-               width: 200,
-               height: 200,
-             },
-             getStartedButton: {
-               backgroundColor: '#FFD700',
-               padding: 15,
-               borderRadius: 10,
-               alignItems: 'center',
-               marginTop: 40,
-               shadowColor: '#FFA500',
-               shadowOffset: { width: 0, height: 2 },
-               shadowOpacity: 0.5,
-               shadowRadius: 3,
-               elevation: 3,
-             },
-             getStartedButtonText: {
-               color: '#000',
-               fontSize: 18,
-               fontWeight: 'bold',
-             },
-             questionContainer: {
-               flex: 1,
-               justifyContent: 'center',
-               alignItems: 'center',
-               paddingHorizontal: 20,
-             },
-             questionText: {
-               fontSize: 24,
-               fontWeight: 'bold',
-               color: '#FFD700',
-               marginBottom: 20,
-               textAlign: 'center',
-             },
-             optionText: {
-               fontSize: 18,
-               color: '#fff',
-             },
-             workoutListHeader: {
-               fontSize: 20,
-               fontWeight: 'bold',
-               color: '#FFD700',
-               marginTop: 20,
-               marginBottom: 10,
-             },
-             workoutItem: {
-               flexDirection: 'row',
-               justifyContent: 'space-between',
-               alignItems: 'center',
-               backgroundColor: '#333',
-               padding: 15,
-               borderRadius: 10,
-               marginBottom: 10,
-               shadowColor: '#000',
-               shadowOffset: { width: 0, height: 2 },
-               shadowOpacity: 0.2,
-               shadowRadius: 3,
-               elevation: 3,
-             },
-             incompatibleWorkout: {
-               opacity: 0.5,
-             },
-             streakContainer: {
-               flexDirection: 'row',
-               alignItems: 'center',
-               marginTop: 10,
-             },
-             streakText: {
-               color: '#FFD700',
-               fontSize: 16,
-               marginLeft: 5,
-             },
-             coinsContainer: {
-               flexDirection: 'row',
-               alignItems: 'center',
-               marginTop: 10,
-             },
-             coinsText: {
-               color: '#FFD700',
-               fontSize: 16,
-               marginLeft: 5,
-             },
-             achievementsButton: {
-               backgroundColor: '#4CAF50',
-               padding: 10,
-               borderRadius: 5,
-               alignItems: 'center',
-               marginTop: 10,
-             },
-             achievementsButtonText: {
-               color: '#fff',
-               fontWeight: 'bold',
-             },
-             socialChallengeItem: {
-               backgroundColor: '#1a1a1a',
-               borderRadius: 10,
-               padding: 15,
-               marginBottom: 15,
-             },
-             socialChallengeName: {
-               fontSize: 18,
-               fontWeight: 'bold',
-               color: '#FFD700',
-               marginBottom: 5,
-             },
-             socialChallengeDescription: {
-               color: '#fff',
-               marginBottom: 10,
-             },
-             socialChallengeDates: {
-               color: '#ccc',
-               marginBottom: 10,
-             },
-             leaderboardContainer: {
-               backgroundColor: '#1a1a1a',
-               borderRadius: 10,
-               padding: 15,
-               marginTop: 20,
-             },
-             leaderboardTitle: {
-               fontSize: 20,
-               fontWeight: 'bold',
-               color: '#FFD700',
-               marginBottom: 10,
-             },
-             leaderboardItem: {
-               flexDirection: 'row',
-               justifyContent: 'space-between',
-               alignItems: 'center',
-               paddingVertical: 5,
-             },
-             leaderboardRank: {
-               color: '#fff',
-               fontSize: 16,
-               fontWeight: 'bold',
-               width: 30,
-             },
-             leaderboardName: {
-               color: '#fff',
-               fontSize: 16,
-               flex: 1,
-             },
-             leaderboardScore: {
-               color: '#FFD700',
-               fontSize: 16,
-               fontWeight: 'bold',
-             },
-             dashboardHeader: {
-               flexDirection: 'row',
-               justifyContent: 'space-between',
-               alignItems: 'center',
-               marginBottom: 20,
-             },
-             settingsButton: {
-               padding: 10,
-             },
-             bodyPartOption: {
-               flexDirection: 'row',
-               justifyContent: 'space-between',
-               alignItems: 'center',
-               backgroundColor: '#333',
-               padding: 15,
-               borderRadius: 10,
-               marginBottom: 10,
-               shadowColor: '#000',
-               shadowOffset: { width: 0, height: 2 },
-               shadowOpacity: 0.2,
-               shadowRadius: 3,
-               elevation: 3,
-             },
-             bodyPartOptionText: {
-               fontSize: 18,
-               color: '#fff',
-             },
-             // Styles for the recommendation UI
-             recommendationContainer: {
-               padding: 20,
-               backgroundColor: '#1a1a1a', // Or your preferred background color
-               borderRadius: 10,
-               marginBottom: 20,
-             },
-             recommendationText: {
-               color: '#FFD700', // Or your preferred text color
-               fontSize: 16,
-             },
-             demoModeBanner: {
-              backgroundColor: '#FFD700',
-              padding: 10,
-              alignItems: 'center',
-            },
-            demoModeBannerText: {
-              color: '#000',
-              fontWeight: 'bold',
-              fontSize: 16,
-            },
-            demoModeSwitchContainer: {
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: 10,
-            },
-            demoModeSwitchText: {
-              color: '#fff',
-              fontSize: 16,
-            },
-            
-           });
-           
-           export default WorkoutApp; 
+
+
+// Styles
+const styles = StyleSheet.create({
+ container: {
+   flex: 1,
+   backgroundColor: '#000',
+ },
+ gradient: {
+   // Stretch the gradient to the bottom
+   position: 'absolute',
+   top: 0,
+   left: 0,
+   right: 0,
+   bottom: 0,
+   padding: 20,
+   flex: 1,
+ },
+ header: {
+   flexDirection: 'row',
+   justifyContent: 'space-between',
+   alignItems: 'center',
+   paddingHorizontal: 20,
+   paddingTop: 20,
+   paddingBottom: 10,
+   backgroundColor: '#1a1a1a',
+ },
+ profileImage: {
+   width: 40,
+   height: 40,
+   borderRadius: 20,
+   borderWidth: 2,
+   borderColor: '#FFD700',
+ },
+ headerTitle: {
+   fontSize: 24,
+   fontWeight: 'bold',
+   color: '#FFD700',
+ },
+ content: {
+   flex: 1,
+   backgroundColor: '#000',
+ },
+ tabBar: {
+   flexDirection: 'row',
+   justifyContent: 'space-around',
+   paddingVertical: 10,
+   borderTopWidth: 1,
+   borderTopColor: '#333',
+   backgroundColor: '#1a1a1a',
+ },
+ tabItem: {
+   alignItems: 'center',
+ },
+ tabText: {
+   color: '#FFD700',
+   fontSize: 12,
+   marginTop: 4,
+ },
+ activeTabText: {
+   color: '#FFA500',
+ },
+ modalContainer: {
+   flex: 1,
+   justifyContent: 'center',
+   alignItems: 'center',
+   backgroundColor: 'rgba(0, 0, 0, 0.9)',
+ },
+ modalContent: {
+   backgroundColor: '#1a1a1a',
+   borderRadius: 10,
+   padding: 20,
+   width: '80%',
+   maxHeight: '80%',
+ },
+ modalHeader: {
+   fontSize: 24,
+   fontWeight: 'bold',
+   color: '#FFD700',
+   marginBottom: 20,
+   textAlign: 'center',
+ },
+ input: {
+   backgroundColor: '#333',
+   borderRadius: 5,
+   padding: 10,
+   marginBottom: 10,
+   color: '#fff',
+ },
+ modalButton: {
+   backgroundColor: '#FFD700',
+   padding: 15,
+   borderRadius: 5,
+   alignItems: 'center',
+   marginTop: 20,
+ },
+ modalButtonText: {
+   color: '#000',
+   fontWeight: 'bold',
+   fontSize: 16,
+ },
+ cancelButton: {
+   backgroundColor: '#FF6347',
+   marginTop: 10,
+ },
+ imagePicker: {
+   backgroundColor: '#333',
+   borderRadius: 10,
+   padding: 20,
+   alignItems: 'center',
+   marginBottom: 20,
+ },
+ imagePickerText: {
+   color: '#FFD700',
+   fontSize: 16,
+ },
+ inputScrollView: {
+   maxHeight: 300,
+ },
+ errorText: {
+   color: '#FF6347',
+   fontSize: 12,
+   marginBottom: 5,
+ },
+ workoutCard: {
+   backgroundColor: '#1a1a1a',
+   borderRadius: 15,
+   padding: 20,
+   marginBottom: 20,
+   shadowColor: '#000',
+   shadowOffset: { width: 0, height: 2 },
+   shadowOpacity: 0.3,
+   shadowRadius: 5,
+   elevation: 5,
+ },
+ startButton: {
+   backgroundColor: '#FFD700',
+   padding: 15,
+   borderRadius: 10,
+   alignItems: 'center',
+   marginTop: 15,
+   shadowColor: '#FFA500',
+   shadowOffset: { width: 0, height: 2 },
+   shadowOpacity: 0.5,
+   shadowRadius: 3,
+   elevation: 3,
+ },
+ quoteCard: {
+   backgroundColor: '#1a1a1a',
+   borderRadius: 15,
+   padding: 20,
+   marginBottom: 20,
+   shadowColor: '#000',
+   shadowOffset: { width: 0, height: 2 },
+   shadowOpacity: 0.3,
+   shadowRadius: 5,
+   elevation: 5,
+ },
+ optionButton: {
+   flexDirection: 'row',
+   justifyContent: 'space-between',
+   alignItems: 'center',
+   backgroundColor: '#333',
+   padding: 15,
+   borderRadius: 10,
+   marginBottom: 10,
+   shadowColor: '#000',
+   shadowOffset: { width: 0, height: 2 },
+   shadowOpacity: 0.2,
+   shadowRadius: 3,
+   elevation: 3,
+ },
+ selectedOption: {
+   backgroundColor: '#4a4a4a',
+ },
+ generateWorkoutButton: {
+   backgroundColor: '#FFD700',
+   padding: 15,
+   borderRadius: 10,
+   alignItems: 'center',
+   marginTop: 20,
+   shadowColor: '#FFA500',
+   shadowOffset: { width: 0, height: 2 },
+   shadowOpacity: 0.5,
+   shadowRadius: 3,
+   elevation: 3,
+ },
+ completeWorkoutButton: {
+   backgroundColor: '#FFD700',
+   padding: 15,
+   borderRadius: 5,
+   alignItems: 'center',
+   marginTop: 20,
+ },
+ generateMealPlanButton: {
+   backgroundColor: '#FFD700',
+   padding: 15,
+   borderRadius: 5,
+   alignItems: 'center',
+ },
+ calculateBMIButton: {
+   backgroundColor: '#FFD700',
+   padding: 15,
+   borderRadius: 5,
+   alignItems: 'center',
+   marginBottom: 20,
+ },
+ generateReportButton: {
+   backgroundColor: '#FFD700',
+   padding: 15,
+   borderRadius: 5,
+   alignItems: 'center',
+   marginBottom: 20,
+ },
+ refreshChallengesButton: {
+   backgroundColor: '#FFD700',
+   padding: 15,
+   borderRadius: 5,
+   alignItems: 'center',
+   marginTop: 20,
+ },
+ feedbackOption: {
+   backgroundColor: '#333',
+   padding: 15,
+   borderRadius: 5,
+   alignItems: 'center',
+   marginBottom: 10,
+   shadowColor: '#000',
+   shadowOffset: { width: 0, height: 2 },
+   shadowOpacity: 0.2,
+   shadowRadius: 3,
+   elevation: 3,
+ },
+ levelProgressContainer: {
+   marginTop: 10,
+   alignItems: 'center',
+ },
+ levelText: {
+   color: '#FFD700',
+   fontSize: 18,
+   fontWeight: 'bold',
+ },
+ progressBar: {
+   width: '100%',
+   height: 10,
+   backgroundColor: '#333',
+   borderRadius: 5,
+   marginTop: 5,
+   overflow: 'hidden',
+ },
+ progressFill: {
+   height: '100%',
+   backgroundColor: '#FFD700',
+ },
+ xpText: {
+   color: '#fff',
+   fontSize: 14,
+   marginTop: 5,
+ },
+ achievementItem: {
+   flexDirection: 'row',
+   alignItems: 'center',
+   backgroundColor: '#333',
+   padding: 10,
+   borderRadius: 5,
+   marginBottom: 10,
+ },
+ achievementIcon: {
+   width: 40,
+   height: 40,
+   marginRight: 10,
+ },
+ achievementInfo: {
+   flex: 1,
+ },
+ achievementName: {
+   color: '#FFD700',
+   fontSize: 16,
+   fontWeight: 'bold',
+ },
+ achievementDescription: {
+   color: '#fff',
+   fontSize: 14,
+ },
+ closeButton: {
+   backgroundColor: '#FFD700',
+   padding: 10,
+   borderRadius: 5,
+   alignItems: 'center',
+   marginTop: 20,
+ },
+ closeButtonText: {
+   color: '#000',
+   fontSize: 16,
+   fontWeight: 'bold',
+ },
+ dashboardContainer: {
+   flex: 1,
+   backgroundColor: '#000',
+ },
+ topSection: {
+   alignItems: 'center',
+   marginBottom: 30,
+ },
+ userName: {
+   fontSize: 28,
+   fontWeight: 'bold',
+   color: '#FFD700',
+   marginTop: 10,
+ },
+ points: {
+   fontSize: 18,
+   color: '#FFD700',
+   marginTop: 5,
+ },
+ cardTitle: {
+   fontSize: 20,
+   fontWeight: 'bold',
+   color: '#FFD700',
+   marginBottom: 10,
+ },
+ workoutName: {
+   fontSize: 18,
+   color: '#fff',
+   marginBottom: 15,
+ },
+ startButtonText: {
+   color: '#000',
+   fontSize: 16,
+   fontWeight: 'bold',
+ },
+ quoteText: {
+   color: '#FFD700',
+   fontSize: 16,
+   fontStyle: 'italic',
+   textAlign: 'center',
+   marginBottom: 10,
+ },
+ refreshButton: {
+   padding: 10,
+   alignSelf: 'center',
+ },
+ animation: {
+   width: 25, // or 40 for an even smaller animation
+   height: 25, // or 40 for an even smaller animation
+   alignSelf: 'center',
+ },
+ tabContent: {
+   flex: 1,
+   padding: 20,
+   backgroundColor: '#000',
+ },
+ tabTitle: {
+   fontSize: 24,
+   fontWeight: 'bold',
+   color: '#FFD700',
+   marginBottom: 20,
+ },
+ workoutTabContent: {
+   flexGrow: 1,
+   padding: 20,
+   backgroundColor: '#000',
+ },
+ exerciseItem: {
+   marginBottom: 10,
+ },
+ exerciseName: {
+   color: '#FFD700',
+   fontSize: 18,
+   fontWeight: 'bold',
+   marginBottom: 5,
+ },
+ exerciseDetail: {
+   color: '#fff',
+   fontSize: 14,
+ },
+ completeWorkoutButtonText: {
+   color: '#000',
+   fontWeight: 'bold',
+   fontSize: 16,
+ },
+ generateWorkoutButtonText: {
+   color: '#000',
+   fontWeight: 'bold',
+   fontSize: 16,
+ },
+ mealPlanContainer: {
+   backgroundColor: '#1a1a1a',
+   borderRadius: 10,
+   padding: 15,
+   marginBottom: 20,
+ },
+ mealTitle: {
+   color: '#FFD700',
+   fontSize: 18,
+   fontWeight: 'bold',
+   marginBottom: 5,
+ },
+ mealContent: {
+   color: '#fff',
+   marginBottom: 10,
+ },
+ updateMealPlanButton: {
+   backgroundColor: '#FFD700',
+   padding: 15,
+   borderRadius: 5,
+   alignItems: 'center',
+   marginTop: 20,
+ },
+ updateMealPlanButtonText: {
+   color: '#000',
+   fontWeight: 'bold',
+   fontSize: 16,
+ },
+ generateMealPlanButtonText: {
+   color: '#000',
+   fontWeight: 'bold',
+   fontSize: 16,
+ },
+ bmiChartContainer: {
+   backgroundColor: '#1a1a1a',
+   borderRadius: 10,
+   padding: 15,
+   marginBottom: 20,
+ },
+ chart: {
+   marginVertical: 8,
+   borderRadius: 16,
+ },
+ calculateBMIButtonText: {
+   color: '#000',
+   fontWeight: 'bold',
+   fontSize: 16,
+ },
+ generateReportButtonText: {
+   color: '#000',
+   fontWeight: 'bold',
+   fontSize: 16,
+ },
+ progressReportContainer: {
+   backgroundColor: '#1a1a1a',
+   borderRadius: 10,
+   padding: 15,
+   marginBottom: 20,
+ },
+ progressReportContent: {
+   color: '#fff',
+ },
+ challengeItem: {
+   backgroundColor: '#1a1a1a',
+   borderRadius: 10,
+   padding: 15,
+   marginBottom: 15,
+ },
+ challengeName: {
+   fontSize: 18,
+   fontWeight: 'bold',
+   color: '#FFD700',
+   marginBottom: 5,
+ },
+ challengeDescription: {
+   color: '#fff',
+   marginBottom: 10,
+ },
+ challengeDuration: {
+   color: '#ccc',
+ },
+ challengeDifficulty: {
+   color: '#ccc',
+   marginBottom: 10,
+ },
+ challengeButton: {
+   backgroundColor: '#FFD700',
+   padding: 10,
+   borderRadius: 5,
+   alignItems: 'center',
+ },
+ challengeCompleted: {
+   backgroundColor: '#4CAF50',
+ },
+ challengeButtonText: {
+   color: '#000',
+   fontWeight: 'bold',
+ },
+ refreshChallengesButtonText: {
+   color: '#000',
+   fontWeight: 'bold',
+   fontSize: 16,
+ },
+ loadingOverlay: {
+   ...StyleSheet.absoluteFillObject,
+   backgroundColor: 'rgba(0, 0, 0, 0.7)',
+   justifyContent: 'center',
+   alignItems: 'center',
+ },
+ alertModalContainer: {
+   flex: 1,
+   justifyContent: 'center',
+   alignItems: 'center',
+   backgroundColor: 'rgba(0, 0, 0, 0.5)',
+ },
+ alertModalContent: {
+   backgroundColor: '#1a1a1a',
+   borderRadius: 10,
+   padding: 20,
+   alignItems: 'center',
+   width: '80%',
+ },
+ alertModalTitle: {
+   fontSize: 20,
+   fontWeight: 'bold',
+   color: '#FFD700',
+   marginBottom: 10,
+ },
+ alertModalMessage: {
+   color: '#fff',
+   textAlign: 'center',
+   marginBottom: 20,
+ },
+ alertModalButton: {
+   backgroundColor: '#FFD700',
+   padding: 10,
+   borderRadius: 5,
+   width: '100%',
+   alignItems: 'center',
+ },
+ alertModalButtonText: {
+   color: '#000',
+   fontWeight: 'bold',
+ },
+ errorContainer: {
+   flex: 1,
+   justifyContent: 'center',
+   alignItems: 'center',
+   backgroundColor: '#000',
+ },
+ modalText: {
+   color: '#fff',
+   fontSize: 16,
+   marginBottom: 15,
+ },
+ feedbackOptionText: {
+   color: '#FFD700',
+   fontSize: 16,
+ },
+ workoutList: {
+   maxHeight: 200,
+   marginTop: 20,
+ },
+ sectionTitle: {
+   fontSize: 20,
+   fontWeight: 'bold',
+   color: '#FFD700',
+   marginBottom: 15,
+ },
+ progressReportSubtitle: {
+   fontSize: 18,
+   fontWeight: 'bold',
+   color: '#FFD700',
+   marginTop: 10,
+   marginBottom: 5,
+ },
+ challengeDates: {
+   color: '#ccc',
+   marginBottom: 10,
+ },
+ joinButton: {
+   backgroundColor: '#FFD700',
+   padding: 10,
+   borderRadius: 5,
+   alignItems: 'center',
+ },
+ joinButtonText: {
+   color: '#000',
+   fontWeight: 'bold',
+ },
+ createChallengeButton: {
+   backgroundColor: '#FFD700',
+   padding: 15,
+   borderRadius: 5,
+   alignItems: 'center',
+   marginTop: 20,
+ },
+ createChallengeButtonText: {
+   color: '#000',
+   fontWeight: 'bold',
+   fontSize: 16,
+ },
+ welcomeContainer: {
+   flex: 1,
+   justifyContent: 'center',
+   alignItems: 'center',
+   backgroundColor: '#000',
+ },
+ welcomeTitle: {
+   fontSize: 36,
+   fontWeight: 'bold',
+   color: '#FFD700',
+   marginBottom: 30,
+   textAlign: 'center',
+ },
+ welcomeAnimation: {
+   width: 200,
+   height: 200,
+ },
+ getStartedButton: {
+   backgroundColor: '#FFD700',
+   padding: 15,
+   borderRadius: 10,
+   alignItems: 'center',
+   marginTop: 40,
+   shadowColor: '#FFA500',
+   shadowOffset: { width: 0, height: 2 },
+   shadowOpacity: 0.5,
+   shadowRadius: 3,
+   elevation: 3,
+ },
+ getStartedButtonText: {
+   color: '#000',
+   fontSize: 18,
+   fontWeight: 'bold',
+ },
+ questionContainer: {
+   flex: 1,
+   justifyContent: 'center',
+   alignItems: 'center',
+   paddingHorizontal: 20,
+ },
+ questionText: {
+   fontSize: 24,
+   fontWeight: 'bold',
+   color: '#FFD700',
+   marginBottom: 20,
+   textAlign: 'center',
+ },
+ optionText: {
+   fontSize: 18,
+   color: '#fff',
+ },
+ workoutListHeader: {
+   fontSize: 20,
+   fontWeight: 'bold',
+   color: '#FFD700',
+   marginTop: 20,
+   marginBottom: 10,
+ },
+ workoutItem: {
+   flexDirection: 'row',
+   justifyContent: 'space-between',
+   alignItems: 'center',
+   backgroundColor: '#333',
+   padding: 15,
+   borderRadius: 10,
+   marginBottom: 10,
+   shadowColor: '#000',
+   shadowOffset: { width: 0, height: 2 },
+   shadowOpacity: 0.2,
+   shadowRadius: 3,
+   elevation: 3,
+ },
+ incompatibleWorkout: {
+   opacity: 0.5,
+ },
+ streakContainer: {
+   flexDirection: 'row',
+   alignItems: 'center',
+   marginTop: 10,
+ },
+ streakText: {
+   color: '#FFD700',
+   fontSize: 16,
+   marginLeft: 5,
+ },
+ coinsContainer: {
+   flexDirection: 'row',
+   alignItems: 'center',
+   marginTop: 10,
+ },
+ coinsText: {
+   color: '#FFD700',
+   fontSize: 16,
+   marginLeft: 5,
+ },
+ achievementsButton: {
+   backgroundColor: '#4CAF50',
+   padding: 10,
+   borderRadius: 5,
+   alignItems: 'center',
+   marginTop: 10,
+ },
+ achievementsButtonText: {
+   color: '#fff',
+   fontWeight: 'bold',
+ },
+ socialChallengeItem: {
+   backgroundColor: '#1a1a1a',
+   borderRadius: 10,
+   padding: 15,
+   marginBottom: 15,
+ },
+ socialChallengeName: {
+   fontSize: 18,
+   fontWeight: 'bold',
+   color: '#FFD700',
+   marginBottom: 5,
+ },
+ socialChallengeDescription: {
+   color: '#fff',
+   marginBottom: 10,
+ },
+ socialChallengeDates: {
+   color: '#ccc',
+   marginBottom: 10,
+ },
+ leaderboardContainer: {
+   backgroundColor: '#1a1a1a',
+   borderRadius: 10,
+   padding: 15,
+   marginTop: 20,
+ },
+ leaderboardTitle: {
+   fontSize: 20,
+   fontWeight: 'bold',
+   color: '#FFD700',
+   marginBottom: 10,
+ },
+ leaderboardItem: {
+   flexDirection: 'row',
+   justifyContent: 'space-between',
+   alignItems: 'center',
+   paddingVertical: 5,
+ },
+ leaderboardRank: {
+   color: '#fff',
+   fontSize: 16,
+   fontWeight: 'bold',
+   width: 30,
+ },
+ leaderboardName: {
+   color: '#fff',
+   fontSize: 16,
+   flex: 1,
+ },
+ leaderboardScore: {
+   color: '#FFD700',
+   fontSize: 16,
+   fontWeight: 'bold',
+ },
+ dashboardHeader: {
+   flexDirection: 'row',
+   justifyContent: 'space-between',
+   alignItems: 'center',
+   marginBottom: 20,
+ },
+ settingsButton: {
+   padding: 10,
+ },
+ bodyPartOption: {
+   flexDirection: 'row',
+   justifyContent: 'space-between',
+   alignItems: 'center',
+   backgroundColor: '#333',
+   padding: 15,
+   borderRadius: 10,
+   marginBottom: 10,
+   shadowColor: '#000',
+   shadowOffset: { width: 0, height: 2 },
+   shadowOpacity: 0.2,
+   shadowRadius: 3,
+   elevation: 3,
+ },
+ bodyPartOptionText: {
+   fontSize: 18,
+   color: '#fff',
+ },
+ // Styles for the recommendation UI
+ recommendationContainer: {
+   padding: 20,
+   backgroundColor: '#1a1a1a', // Or your preferred background color
+   borderRadius: 10,
+   marginBottom: 20,
+ },
+ recommendationText: {
+   color: '#FFD700', // Or your preferred text color
+   fontSize: 16,
+ },
+ demoModeBanner: {
+  backgroundColor: '#FFD700',
+  padding: 10,
+  alignItems: 'center',
+},
+demoModeBannerText: {
+  color: '#000',
+  fontWeight: 'bold',
+  fontSize: 16,
+},
+demoModeSwitchContainer: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  marginBottom: 10,
+},
+demoModeSwitchText: {
+  color: '#fff',
+  fontSize: 16,
+},
+
+});
+
+export default WorkoutApp;
