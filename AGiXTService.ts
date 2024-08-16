@@ -205,14 +205,25 @@ class AGiXTService {
   }
 
   public async getAgents(): Promise<any> {
+    if (this.isDemoMode) {
+      return { agents: [{ name: 'DemoAgent' }] }; // Dummy data
+    }
     return this.request('get', '/api/agent');
   }
 
   public async addAgent(agentName: string, settings: any = {}): Promise<any> {
+    if (this.isDemoMode) {
+      console.log('Demo Mode: Agent added -', agentName, settings);
+      return { success: true }; // Dummy response
+    }
     return this.request('post', '/api/agent', { agent_name: agentName, settings });
   }
 
   public async newConversation(agentName: string, conversationName: string, conversationContent: any[] = []): Promise<any> {
+    if (this.isDemoMode) {
+      console.log('Demo Mode: New conversation created -', agentName, conversationName, conversationContent);
+      return { success: true }; // Dummy response
+    }
     return this.request('post', '/api/conversation', {
       conversation_name: conversationName,
       agent_name: agentName,
@@ -221,6 +232,10 @@ class AGiXTService {
   }
 
   public async chat(agentName: string, userInput: string, conversationName: string, contextResults = 4): Promise<any> {
+    if (this.isDemoMode) {
+      console.log('Demo Mode: Chat simulated -', agentName, userInput, conversationName, contextResults);
+      return { response: '{ "demo": "response" }' }; // Dummy response
+    }
     return this.request('post', `/api/agent/${agentName}/prompt`, {
       prompt_name: 'Chat',
       prompt_args: {
@@ -233,6 +248,10 @@ class AGiXTService {
   }
 
   public async newConversationMessage(role: string, message: string, conversationName: string): Promise<any> {
+    if (this.isDemoMode) {
+      console.log('Demo Mode: New conversation message added -', role, message, conversationName);
+      return { success: true }; // Dummy response
+    }
     return this.request('post', '/api/conversation/message', {
       role,
       message,
@@ -241,6 +260,10 @@ class AGiXTService {
   }
 
   public async initializeWorkoutAgent(): Promise<void> {
+    if (this.isDemoMode) {
+      console.log('Demo Mode: Workout agent initialization skipped.');
+      return;
+    }
     try {
       const agentsResponse = await this.getAgents();
       const agents = agentsResponse.agents || [];
@@ -254,6 +277,10 @@ class AGiXTService {
   }
 
   private async createWorkoutAgent(): Promise<void> {
+    if (this.isDemoMode) {
+      console.log('Demo Mode: Workout agent creation skipped.');
+      return;
+    }
     const settings = {
       provider: 'gpt4free',
       AI_MODEL: 'gpt-3.5-turbo',
@@ -331,7 +358,7 @@ class AGiXTService {
             weeklyPlan: [
               {
                 day: 'Day 1 - Chest & Triceps',
-                focus: 'Strength', 
+                focus: 'Strength',
                 exercises: [
                   { name: 'Bench Press', sets: 3, reps: '8-12', rest: '60 seconds' },
                   { name: 'Incline Dumbbell Press', sets: 3, reps: '8-12', rest: '60 seconds' },
@@ -342,7 +369,7 @@ class AGiXTService {
               },
               {
                 day: 'Day 2 - Back & Biceps',
-                focus: 'Strength', 
+                focus: 'Strength',
                 exercises: [
                   { name: 'Pull-ups', sets: 3, reps: 'As many as possible', rest: '60 seconds' },
                   { name: 'Barbell Rows', sets: 3, reps: '8-12', rest: '60 seconds' },
@@ -359,8 +386,7 @@ class AGiXTService {
         },
       ];
     } else {
-      await this.initializeWorkoutAgent();
-
+      // Real workout generation logic (remove initializeWorkoutAgent call)
       const conversationName = `MultipleWorkouts_${Date.now()}`;
       const generatedWorkouts: any[] = [];
       const workoutNames = new Set();
@@ -449,7 +475,7 @@ class AGiXTService {
         {
           id: 1,
           name: 'Demo Challenge 1',
-          description: 'Complete 3 workouts this week.',
+          description: 'Complete 3 demo workouts this week.',
           duration: '1 week',
           difficulty: 'Easy',
           completed: false,
@@ -465,8 +491,7 @@ class AGiXTService {
         // Add more demo challenges as needed
       ];
     } else {
-      await this.initializeWorkoutAgent();
-
+      // Real challenge generation logic (remove initializeWorkoutAgent call)
       const conversationName = `Challenges_${userProfile.name}_${Date.now()}`;
 
       try {
@@ -1093,22 +1118,29 @@ class AGiXTService {
     }
   }
 
-  public async getSocialChallengeLeaderboard(challengeId: string): Promise<{userId: string, progress: number}[]> {
-    // This method would typically fetch data from a database
-    // For this example, we'll return mock data
-    return [
-      { userId: 'user1', progress: 75 },
-      { userId: 'user2', progress: 60 },
-      { userId: 'user3', progress: 90 },
-    ];
+  public async getSocialChallengeLeaderboard(challengeId: string): Promise<{ userId: string; progress: number }[]> {
+    if (this.isDemoMode) {
+      return [
+        { userId: 'Demo User 1', progress: 75 },
+        { userId: 'Demo User 2', progress: 60 },
+        { userId: 'Demo User 3', progress: 90 },
+      ];
+    } else {
+      // This method would typically fetch data from a database
+      // For this example, we'll return mock data
+      return [
+        { userId: 'user1', progress: 75 },
+        { userId: 'user2', progress: 60 },
+        { userId: 'user3', progress: 90 },
+      ];
+    }
   }
-
 
   public async analyzeWorkouts(workouts: ActivitySummaryRecord[]): Promise<WorkoutAnalysis> {
     if (this.isDemoMode) {
       return {
-        recommendation: "Since you've been focusing on cardio lately, try incorporating some strength training exercises like squats and push-ups into your next workout.",
-        warning: false
+        recommendation: "This is a demo recommendation. Try incorporating variety into your workouts!",
+        warning: false,
       };
     } else {
       // 1. Prepare the workout data for AGiXT

@@ -15,6 +15,7 @@ import {
   SafeAreaView,
   Animated,
   FlatList,
+  Switch,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -45,7 +46,7 @@ import AGiXTService, {
   SocialChallenge,
   ProgressReport,
   BodyMeasurements
-} from './AGiXTService'; 
+} from './AGiXTService';
 import HealthConnect, {
   SdkAvailabilityStatus,
   ReadRecordsOptions,
@@ -86,8 +87,8 @@ interface DashboardTabProps {
   points: number;
   motivationalQuote: string;
   refreshQuote: () => Promise<void>;
-  onEditProfile: () => void; 
-  onOpenSettings: () => void; 
+  onEditProfile: () => void;
+  onOpenSettings: () => void;
 }
 
 interface WorkoutTabProps {
@@ -225,9 +226,10 @@ const AchievementsModal: React.FC<{ visible: boolean; onClose: () => void; userP
 
 const WelcomeScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [displayText, setDisplayText] = useState('');
-  const [settingsModalVisible, setSettingsModalVisible] = useState(true); 
+  const [settingsModalVisible, setSettingsModalVisible] = useState(true);
   const [apiKey, setApiKey] = useState('');
   const [apiUri, setApiUri] = useState('');
+  const [isDemoMode, setIsDemoMode] = useState(false);
 
   const fullText = 'Welcome to AGiXT Workouts';
 
@@ -246,18 +248,15 @@ const WelcomeScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   }, []);
 
   const handleSaveSettings = async () => {
-    if (!apiKey.trim() || !apiUri.trim()) {
-      // Handle invalid input (e.g., show an error message)
-      return;
-    }
-
     try {
       await AsyncStorage.setItem('apiKey', apiKey);
       await AsyncStorage.setItem('apiUri', apiUri);
+      await AsyncStorage.setItem('demoMode', isDemoMode.toString());
 
       navigation.navigate('WorkoutSelection');
       setSettingsModalVisible(false);
     } catch (error) {
+      console.error('Error saving settings:', error);
       // Handle error saving settings (e.g., show an error message)
     }
   };
@@ -275,20 +274,33 @@ const WelcomeScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <Text style={styles.modalHeader}>AGiXT Settings</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="API Key"
-              value={apiKey}
-              onChangeText={setApiKey}
-              placeholderTextColor="#ccc"
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="API URI"
-              value={apiUri}
-              onChangeText={setApiUri}
-              placeholderTextColor="#ccc"
-            />
+            <View style={styles.demoModeSwitchContainer}>
+              <Text style={styles.demoModeSwitchText}>Demo Mode</Text>
+              <Switch
+                value={isDemoMode}
+                onValueChange={setIsDemoMode}
+                trackColor={{ false: '#767577', true: '#FFD700' }}
+                thumbColor={isDemoMode ? '#f4f3f4' : '#f4f3f4'}
+              />
+            </View>
+            {!isDemoMode && (
+              <>
+                <TextInput
+                  style={styles.input}
+                  placeholder="API Key"
+                  value={apiKey}
+                  onChangeText={setApiKey}
+                  placeholderTextColor="#ccc"
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="API URI"
+                  value={apiUri}
+                  onChangeText={setApiUri}
+                  placeholderTextColor="#ccc"
+                />
+              </>
+            )}
             <TouchableOpacity style={styles.modalButton} onPress={handleSaveSettings}>
               <Text style={styles.modalButtonText}>Save Settings</Text>
             </TouchableOpacity>
@@ -312,7 +324,7 @@ const WorkoutSelectionScreen: React.FC<{ navigation: any; onComplete: (preferenc
   const handleSelection = (key: keyof WorkoutPreferences, value: string) => {
     setPreferences(prev => ({
       ...prev,
-      [key]: key === 'equipment' 
+      [key]: key === 'equipment'
         ? prev.equipment.includes(value)
           ? prev.equipment.filter(item => item !== value)
           : [...prev.equipment, value]
@@ -411,19 +423,19 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ userProfile, workoutPlan, p
         </View>
 
         <View style={{ width: 150, height: 150, overflow: 'hidden', alignSelf: 'center' }}>
-        <LottieView
-  source={require('./assets/animations/exercise.json')} // Replace with your actual animation file
-  autoPlay
-  loop
-  style={{
-    width: 150,
-    height: 150,
-    transform: [{ scale: 0.5 }]
-  }}
-  resizeMode="cover"
-  speed={1}
-/>
-</View>
+          <LottieView
+            source={require('./assets/animations/exercise.json')} // Replace with your actual animation file
+            autoPlay
+            loop
+            style={{
+              width: 150,
+              height: 150,
+              transform: [{ scale: 0.5 }]
+            }}
+            resizeMode="cover"
+            speed={1}
+          />
+        </View>
       </LinearGradient>
     </ScrollView>
   );
@@ -456,7 +468,7 @@ const WorkoutTab: React.FC<WorkoutTabProps> = ({ workoutPlan, onGenerateWorkout,
     if (workoutPlan.length === 0 && workoutPreferences) {
       onGenerateWorkout(null); // Generate initial workouts without a specific body part
     }
-  }, [workoutPlan, workoutPreferences, onGenerateWorkout]); 
+  }, [workoutPlan, workoutPreferences, onGenerateWorkout]);
 
   const handleGenerateWorkout = () => {
     setBodyPartModalVisible(true);
@@ -464,7 +476,7 @@ const WorkoutTab: React.FC<WorkoutTabProps> = ({ workoutPlan, onGenerateWorkout,
 
   const handleBodyPartSelect = (bodyPart: string) => {
     setSelectedBodyPart(bodyPart);
-    onGenerateWorkout(bodyPart); 
+    onGenerateWorkout(bodyPart);
   };
 
   return (
@@ -483,19 +495,19 @@ const WorkoutTab: React.FC<WorkoutTabProps> = ({ workoutPlan, onGenerateWorkout,
       />
 
       {/* Body Part Modal */}
-      <BodyPartModal 
-        visible={bodyPartModalVisible} 
-        onClose={() => setBodyPartModalVisible(false)} 
-        onSelect={handleBodyPartSelect} 
+      <BodyPartModal
+        visible={bodyPartModalVisible}
+        onClose={() => setBodyPartModalVisible(false)}
+        onSelect={handleBodyPartSelect}
       />
     </>
   );
 };
 
-const BodyPartModal: React.FC<{ 
-  visible: boolean; 
-  onClose: () => void; 
-  onSelect: (bodyPart: string) => void; 
+const BodyPartModal: React.FC<{
+  visible: boolean;
+  onClose: () => void;
+  onSelect: (bodyPart: string) => void;
 }> = ({ visible, onClose, onSelect }) => {
   const bodyParts = ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core', 'Full Body'];
 
@@ -510,9 +522,9 @@ const BodyPartModal: React.FC<{
         <View style={styles.modalContent}>
           <Text style={styles.modalHeader}>What do you want to work on today?</Text>
           {bodyParts.map(bodyPart => (
-            <TouchableOpacity 
-              key={bodyPart} 
-              style={styles.bodyPartOption} 
+            <TouchableOpacity
+              key={bodyPart}
+              style={styles.bodyPartOption}
               onPress={() => {
                 onSelect(bodyPart);
                 onClose();
@@ -551,331 +563,346 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
             <Text style={styles.updateMealPlanButtonText}>Update Meal Plan</Text>
           </TouchableOpacity>
         </View>
-        ) : (
-          <TouchableOpacity style={styles.generateMealPlanButton} onPress={onUpdateMealPlan}>
-            <Text style={styles.generateMealPlanButtonText}>Generate Meal Plan</Text>
+      ) : (
+        <TouchableOpacity style={styles.generateMealPlanButton} onPress={onUpdateMealPlan}>
+          <Text style={styles.generateMealPlanButtonText}>Generate Meal Plan</Text>
+        </TouchableOpacity>
+      )}
+    </ScrollView>
+  );
+};
+
+const ProgressTab: React.FC<ProgressTabProps> = ({ bmiHistory, progressReport, onCalculateBMI, onGenerateReport }) => {
+  return (
+    <ScrollView style={styles.tabContent}>
+      <Text style={styles.tabTitle}>Progress</Text>
+      <TouchableOpacity style={styles.calculateBMIButton} onPress={onCalculateBMI}>
+        <Text style={styles.calculateBMIButtonText}>Calculate BMI</Text>
+      </TouchableOpacity>
+      {bmiHistory.length > 0 && (
+        <View style={styles.bmiChartContainer}>
+          <Text style={styles.sectionTitle}>BMI History</Text>
+          <LineChart
+            data={{
+              labels: bmiHistory.map((entry) => new Date(entry.date).toLocaleDateString()),
+              datasets: [{ data: bmiHistory.map((entry) => entry.bmi) }]
+            }}
+            width={Dimensions.get('window').width - 40}
+            height={220}
+            chartConfig={{
+              backgroundColor: '#e26a00',
+              backgroundGradientFrom: '#fb8c00',
+              backgroundGradientTo: '#ffa726',
+              decimalPlaces: 2,
+              color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+              style: {
+                borderRadius: 16
+              }
+            }}
+            bezier
+            style={styles.chart}
+          />
+        </View>
+      )}
+      <TouchableOpacity style={styles.generateReportButton} onPress={onGenerateReport}>
+        <Text style={styles.generateReportButtonText}>Generate Progress Report</Text>
+      </TouchableOpacity>
+      {progressReport && (
+        <View style={styles.progressReportContainer}>
+          <Text style={styles.sectionTitle}>Progress Report</Text>
+          <Text style={styles.progressReportContent}>{progressReport.summary}</Text>
+          <Text style={styles.progressReportSubtitle}>Workout Progress:</Text>
+          <Text style={styles.progressReportContent}>Total Workouts: {progressReport.workoutProgress.totalWorkouts}</Text>
+          <Text style={styles.progressReportContent}>Average Difficulty: {progressReport.workoutProgress.averageDifficulty.toFixed(1)}</Text>
+          <Text style={styles.progressReportContent}>Most Improved Exercises: {progressReport.workoutProgress.mostImprovedExercises.join(', ')}</Text>
+          <Text style={styles.progressReportSubtitle}>Body Composition Changes:</Text>
+          <Text style={styles.progressReportContent}>Weight Change: {progressReport.bodyCompositionChanges.weightChange} lbs</Text>
+          <Text style={styles.progressReportContent}>Body Fat Percentage Change: {progressReport.bodyCompositionChanges.bodyFatPercentageChange}%</Text>
+          <Text style={styles.progressReportSubtitle}>Recommendations:</Text>
+          {progressReport.recommendations.map((recommendation, index) => (
+            <Text key={index} style={styles.progressReportContent}>\u2022 {recommendation}</Text>
+          ))}
+        </View>
+      )}
+    </ScrollView>
+  );
+};
+
+const ChallengesTab: React.FC<ChallengesTabProps> = ({ challenges, onCompleteChallenge, onRefreshChallenges }) => {
+  return (
+    <ScrollView style={styles.tabContent}>
+      <Text style={styles.tabTitle}>Challenges</Text>
+      {challenges.map((challenge: Challenge) => (
+        <View key={challenge.id} style={styles.challengeItem}>
+          <Text style={styles.challengeName}>{challenge.name}</Text>
+          <Text style={styles.challengeDescription}>{challenge.description}</Text>
+          <Text style={styles.challengeDuration}>Duration: {challenge.duration}</Text>
+          <Text style={styles.challengeDifficulty}>Difficulty: {challenge.difficulty}</Text>
+          <TouchableOpacity
+            style={[styles.challengeButton, challenge.completed && styles.challengeCompleted]}
+            onPress={() => onCompleteChallenge(challenge.id)}
+            disabled={challenge.completed}
+          >
+            <Text style={styles.challengeButtonText}>
+              {challenge.completed ? 'Completed' : 'Complete'}
+            </Text>
           </TouchableOpacity>
-        )}
-      </ScrollView>
-    );
-  };
-  
-  const ProgressTab: React.FC<ProgressTabProps> = ({ bmiHistory, progressReport, onCalculateBMI, onGenerateReport }) => {
-    return (
-      <ScrollView style={styles.tabContent}>
-        <Text style={styles.tabTitle}>Progress</Text>
-        <TouchableOpacity style={styles.calculateBMIButton} onPress={onCalculateBMI}>
-          <Text style={styles.calculateBMIButtonText}>Calculate BMI</Text>
-        </TouchableOpacity>
-        {bmiHistory.length > 0 && (
-          <View style={styles.bmiChartContainer}>
-            <Text style={styles.sectionTitle}>BMI History</Text>
-            <LineChart
-              data={{
-                labels: bmiHistory.map((entry) => new Date(entry.date).toLocaleDateString()),
-                datasets: [{ data: bmiHistory.map((entry) => entry.bmi) }]
-              }}
-              width={Dimensions.get('window').width - 40}
-              height={220}
-              chartConfig={{
-                backgroundColor: '#e26a00',
-                backgroundGradientFrom: '#fb8c00',
-                backgroundGradientTo: '#ffa726',
-                decimalPlaces: 2,
-                color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-                style: {
-                  borderRadius: 16
-                }
-              }}
-              bezier
-              style={styles.chart}
-            />
-          </View>
-        )}
-        <TouchableOpacity style={styles.generateReportButton} onPress={onGenerateReport}>
-          <Text style={styles.generateReportButtonText}>Generate Progress Report</Text>
-        </TouchableOpacity>
-        {progressReport && (
-          <View style={styles.progressReportContainer}>
-            <Text style={styles.sectionTitle}>Progress Report</Text>
-            <Text style={styles.progressReportContent}>{progressReport.summary}</Text>
-            <Text style={styles.progressReportSubtitle}>Workout Progress:</Text>
-            <Text style={styles.progressReportContent}>Total Workouts: {progressReport.workoutProgress.totalWorkouts}</Text>
-            <Text style={styles.progressReportContent}>Average Difficulty: {progressReport.workoutProgress.averageDifficulty.toFixed(1)}</Text>
-            <Text style={styles.progressReportContent}>Most Improved Exercises: {progressReport.workoutProgress.mostImprovedExercises.join(', ')}</Text>
-            <Text style={styles.progressReportSubtitle}>Body Composition Changes:</Text>
-            <Text style={styles.progressReportContent}>Weight Change: {progressReport.bodyCompositionChanges.weightChange} lbs</Text>
-            <Text style={styles.progressReportContent}>Body Fat Percentage Change: {progressReport.bodyCompositionChanges.bodyFatPercentageChange}%</Text>
-            <Text style={styles.progressReportSubtitle}>Recommendations:</Text>
-            {progressReport.recommendations.map((recommendation, index) => (
-              <Text key={index} style={styles.progressReportContent}>\u2022 {recommendation}</Text>
-            ))}
-          </View>
-        )}
-      </ScrollView>
-    );
-  };
-  
-  const ChallengesTab: React.FC<ChallengesTabProps> = ({ challenges, onCompleteChallenge, onRefreshChallenges }) => {
-    return (
-      <ScrollView style={styles.tabContent}>
-        <Text style={styles.tabTitle}>Challenges</Text>
-        {challenges.map((challenge: Challenge) => (
-          <View key={challenge.id} style={styles.challengeItem}>
-            <Text style={styles.challengeName}>{challenge.name}</Text>
-            <Text style={styles.challengeDescription}>{challenge.description}</Text>
-            <Text style={styles.challengeDuration}>Duration: {challenge.duration}</Text>
-            <Text style={styles.challengeDifficulty}>Difficulty: {challenge.difficulty}</Text>
-            <TouchableOpacity
-              style={[styles.challengeButton, challenge.completed && styles.challengeCompleted]}
-              onPress={() => onCompleteChallenge(challenge.id)}
-              disabled={challenge.completed}
-            >
-              <Text style={styles.challengeButtonText}>
-                {challenge.completed ? 'Completed' : 'Complete'}
-              </Text>
+        </View>
+      ))}
+      <TouchableOpacity style={styles.refreshChallengesButton} onPress={onRefreshChallenges}>
+        <Text style={styles.refreshChallengesButtonText}>Refresh Challenges</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+};
+
+const SocialTab: React.FC<SocialTabProps> = ({ socialChallenges, onCreateChallenge, onJoinChallenge }) => {
+  return (
+    <View style={styles.tabContent}>
+      <Text style={styles.tabTitle}>Social Challenges</Text>
+      <FlatList
+        data={socialChallenges}
+        renderItem={({ item }) => (
+          <View style={styles.challengeItem}>
+            <Text style={styles.challengeName}>{item.challengeName}</Text>
+            <Text style={styles.challengeDescription}>{item.description}</Text>
+            <Text style={styles.challengeDates}>{`${item.startDate} - ${item.endDate}`}</Text>
+            <TouchableOpacity style={styles.joinButton} onPress={() => onJoinChallenge(item.id)}>
+              <Text style={styles.joinButtonText}>Join Challenge</Text>
             </TouchableOpacity>
           </View>
-        ))}
-        <TouchableOpacity style={styles.refreshChallengesButton} onPress={onRefreshChallenges}>
-          <Text style={styles.refreshChallengesButtonText}>Refresh Challenges</Text>
+        )}
+        keyExtractor={item => item.id}
+      />
+      <TouchableOpacity style={styles.createChallengeButton} onPress={() => onCreateChallenge({})}>
+        <Text style={styles.createChallengeButtonText}>Create New Challenge</Text>
         </TouchableOpacity>
-      </ScrollView>
-    );
-  };
-  
-  const SocialTab: React.FC<SocialTabProps> = ({ socialChallenges, onCreateChallenge, onJoinChallenge }) => {
-    return (
-      <View style={styles.tabContent}>
-        <Text style={styles.tabTitle}>Social Challenges</Text>
-        <FlatList
-          data={socialChallenges}
-          renderItem={({ item }) => (
-            <View style={styles.challengeItem}>
-              <Text style={styles.challengeName}>{item.challengeName}</Text>
-              <Text style={styles.challengeDescription}>{item.description}</Text>
-              <Text style={styles.challengeDates}>{`${item.startDate} - ${item.endDate}`}</Text>
-              <TouchableOpacity style={styles.joinButton} onPress={() => onJoinChallenge(item.id)}>
-                <Text style={styles.joinButtonText}>Join Challenge</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-          keyExtractor={item => item.id}
-        />
-        <TouchableOpacity style={styles.createChallengeButton} onPress={() => onCreateChallenge({})}>
-          <Text style={styles.createChallengeButtonText}>Create New Challenge</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
-  
-  // Utility functions
-  const updateStreak = (userProfile: UserProfile): UserProfile => {
-    const today = new Date().toISOString().split('T')[0];
-    const lastWorkout = new Date(userProfile.lastWorkoutDate);
-    const diffDays = Math.floor((new Date(today).getTime() - lastWorkout.getTime()) / (1000 * 60 * 60 * 24));
-  
-    let newStreak = userProfile.currentStreak;
-    if (diffDays === 1) {
-      newStreak += 1;
-    } else if (diffDays > 1) {
-      newStreak = 1;
-    }
-  
-    return {
-      ...userProfile,
-      currentStreak: newStreak,
-      longestStreak: Math.max(newStreak, userProfile.longestStreak),
-      lastWorkoutDate: today
-    };
-  };
-  
-  const addExperiencePoints = (userProfile: UserProfile, points: number): UserProfile => {
-    const newExperiencePoints = userProfile.experiencePoints + points;
-    const newLevel = Math.floor(Math.sqrt(newExperiencePoints / 100)) + 1;
-    return {
-      ...userProfile,
-      experiencePoints: newExperiencePoints,
-      level: newLevel
-    };
-  };
-  
-  const awardCoins = (userProfile: UserProfile, amount: number): UserProfile => {
-    return {
-      ...userProfile,
-      coins: userProfile.coins + amount
-    };
-  };
-  
-  const checkAchievements = (userProfile: UserProfile, stats: { totalWorkouts: number }): string[] => {
-    const newAchievements: string[] = [];
-    
-    if (stats.totalWorkouts === 1 && !userProfile.unlockedAchievements.includes('first_workout')) {
-      newAchievements.push('first_workout');
-    }
-    
-    if (userProfile.currentStreak >= 7 && !userProfile.unlockedAchievements.includes('week_warrior')) {
-      newAchievements.push('week_warrior');
-    }
-    
-    // Add more achievement checks here
-    
-    return newAchievements;
-  };
-  
-  // Main App Component
-  const WorkoutApp: React.FC = () => {
-    const [userProfile, setUserProfile] = useState<UserProfile>({
-      name: '',
-      age: '',
-      gender: '',
-      feet: '',
-      inches: '',
-      weight: '',
-      goal: '',
-      fitnessLevel: '',
-      daysPerWeek: '',
-      bio: '',
-      interests: '',
-      profileImage: null,
-      level: 1,
-      experiencePoints: 0,
-      currentStreak: 0,
-      longestStreak: 0,
-      lastWorkoutDate: '',
-      coins: 0,
-      unlockedAchievements: [],
-      friends: [],
-    });
-    const [workoutPlan, setWorkoutPlan] = useState<WorkoutPlanResponse[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [profileModalVisible, setProfileModalVisible] = useState(false);
-    const [points, setPoints] = useState(0);
-    const [achievements, setAchievements] = useState<Achievement[]>([
-      { id: 'first_workout', name: 'First Workout', description: 'Complete your first workout', icon: 'first_workout_icon', unlocked: false },
-      { id: 'week_warrior', name: 'Week Warrior', description: 'Complete all workouts for a week', icon: 'week_warrior_icon', unlocked: false },
-      { id: 'nutrition_master', name: 'Nutrition Master', description: 'Follow meal plan for a month', icon: 'nutrition_master_icon', unlocked: false },
-      { id: 'challenge_champion', name: 'Challenge Champion', description: 'Complete 5 challenges', icon: 'challenge_champion_icon', unlocked: false },
-      { id: 'bmi_improver', name: 'BMI Improver', description: 'Improve your BMI by 1 point', icon: 'bmi_improver_icon', unlocked: false },
-    ]);
-    const [challenges, setChallenges] = useState<Challenge[]>([]);
-    const [supplements, setSupplements] = useState<Supplement[]>([]);
-    const [customExercises, setCustomExercises] = useState<CustomExercise[]>([]);
-    const [mealPlan, setMealPlan] = useState<MealPlan | null>(null);
-    const [bmiHistory, setBmiHistory] = useState<{date: string, bmi: number}[]>([]);
-    const [bmiModalVisible, setBmiModalVisible] = useState(false);
-    const [currentWeight, setCurrentWeight] = useState('');
-    const [challengesModalVisible, setChallengesModalVisible] = useState(false);
-    const [supplementsModalVisible, setSupplementsModalVisible] = useState(false);
-    const [mealPlanModalVisible, setMealPlanModalVisible] = useState(false);
-    const [customExerciseModalVisible, setCustomExerciseModalVisible] = useState(false);
-    const [customExerciseName, setCustomExerciseName] = useState('');
-    const [customExerciseDescription, setCustomExerciseDescription] = useState('');
-    const [settingsModalVisible, setSettingsModalVisible] = useState(false);
-    const [apiKey, setApiKey] = useState('');
-    const [apiUri, setApiUri] = useState('');
-    const [agixtService, setAgixtService] = useState<AGiXTService | null>(null);
-    const [workoutFeedback, setWorkoutFeedback] = useState<WorkoutFeedback | null>(null);
-    const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
-    const [workoutPath, setWorkoutPath] = useState('');
-    const [isFirstLaunch, setIsFirstLaunch] = useState(true);
-    const [motivationalQuote, setMotivationalQuote] = useState('');
-    const [progressReport, setProgressReport] = useState<ProgressReport | null>(null);
-    const [alertModalVisible, setAlertModalVisible] = useState(false);
-    const [alertTitle, setAlertTitle] = useState('');
-    const [alertMessage, setAlertMessage] = useState('');
-    const [feedbackAnalysis, setFeedbackAnalysis] = useState<FeedbackAnalysis | null>(null);
-    const [adaptiveWorkoutPlan, setAdaptiveWorkoutPlan] = useState<AdaptiveWorkoutPlan | null>(null);
-    const [anomalyDetectionResult, setAnomalyDetectionResult] = useState<AnomalyDetectionResult | null>(null);
-    const [personalizedRecommendation, setPersonalizedRecommendation] = useState<PersonalizedRecommendation | null>(null);
-    const [fitnessForecast, setFitnessForecast] = useState<FitnessForecast[]>([]);
-    const [activeTab, setActiveTab] = useState('dashboard');
-    const [workoutsCompleted, setWorkoutsCompleted] = useState(0);
-    const [showWelcome, setShowWelcome] = useState(true);
-    const [showWorkoutSelection, setShowWorkoutSelection] = useState(false);
-    const [workoutPreferences, setWorkoutPreferences] = useState<WorkoutPreferences | null>(null);
-    const [socialChallenges, setSocialChallenges] = useState<SocialChallenge[]>([]);
-    const [achievementsModalVisible, setAchievementsModalVisible] = useState(false);
-    const [selectedBodyPart, setSelectedBodyPart] = useState<string | null>(null);
-    const [bodyPartModalVisible, setBodyPartModalVisible] = useState(false);
-    const [isDemoMode, setIsDemoMode] = useState(false);
-    const [workoutAnalysis, setWorkoutAnalysis] = useState<WorkoutAnalysis | null>(null);
-    const [recentActivities, setRecentActivities] = useState<any[]>([]); // Updated to any[]
-    const [healthConnectAvailable, setHealthConnectAvailable] = useState(false);
-    const [healthConnectPermissionsGranted, setHealthConnectPermissionsGranted] = useState(false);
+    </View>
+  );
+};
 
-  
-    const showAlert = useCallback((title: string, message: string) => {
-      setAlertTitle(title);
-      setAlertMessage(message);
-      setAlertModalVisible(true);
-    }, []);
-  
-    useEffect(() => {
-      const initializeApp = async () => {
-        try {
-          setLoading(true);
+// Utility functions
+const updateStreak = (userProfile: UserProfile): UserProfile => {
+  const today = new Date().toISOString().split('T')[0];
+  const lastWorkout = new Date(userProfile.lastWorkoutDate);
+  const diffDays = Math.floor((new Date(today).getTime() - lastWorkout.getTime()) / (1000 * 60 * 60 * 24));
 
-          // Get API Key and URI from AsyncStorage
-          const storedApiKey = await AsyncStorage.getItem('apiKey');
-          const storedApiUri = await AsyncStorage.getItem('apiUri');
+  let newStreak = userProfile.currentStreak;
+  if (diffDays === 1) {
+    newStreak += 1;
+  } else if (diffDays > 1) {
+    newStreak = 1;
+  }
 
-          if (storedApiKey) {
-            setApiKey(storedApiKey);
-          }
-          if (storedApiUri) {
-            setApiUri(storedApiUri);
-          }
+  return {
+    ...userProfile,
+    currentStreak: newStreak,
+    longestStreak: Math.max(newStreak, userProfile.longestStreak),
+    lastWorkoutDate: today
+  };
+};
 
-          // Demo Mode Detection (activated when API URI is 'demo_api_uri')
-          setIsDemoMode(apiUri === 'demo');
+const addExperiencePoints = (userProfile: UserProfile, points: number): UserProfile => {
+  const newExperiencePoints = userProfile.experiencePoints + points;
+  const newLevel = Math.floor(Math.sqrt(newExperiencePoints / 100)) + 1;
+  return {
+    ...userProfile,
+    experiencePoints: newExperiencePoints,
+    level: newLevel
+  };
+};
 
-          const service = new AGiXTService(isDemoMode);
+const awardCoins = (userProfile: UserProfile, amount: number): UserProfile => {
+  return {
+    ...userProfile,
+    coins: userProfile.coins + amount
+  };
+};
+
+const checkAchievements = (userProfile: UserProfile, stats: { totalWorkouts: number }): string[] => {
+  const newAchievements: string[] = [];
+
+  if (stats.totalWorkouts === 1 && !userProfile.unlockedAchievements.includes('first_workout')) {
+    newAchievements.push('first_workout');
+  }
+
+  if (userProfile.currentStreak >= 7 && !userProfile.unlockedAchievements.includes('week_warrior')) {
+    newAchievements.push('week_warrior');
+  }
+
+  // Add more achievement checks here
+
+  return newAchievements;
+};
+
+// Main App Component
+const WorkoutApp: React.FC = () => {
+  const [userProfile, setUserProfile] = useState<UserProfile>({
+    name: '',
+    age: '',
+    gender: '',
+    feet: '',
+    inches: '',
+    weight: '',
+    goal: '',
+    fitnessLevel: '',
+    daysPerWeek: '',
+    bio: '',
+    interests: '',
+    profileImage: null,
+    level: 1,
+    experiencePoints: 0,
+    currentStreak: 0,
+    longestStreak: 0,
+    lastWorkoutDate: '',
+    coins: 0,
+    unlockedAchievements: [],
+    friends: [],
+  });
+  const [workoutPlan, setWorkoutPlan] = useState<WorkoutPlanResponse[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [profileModalVisible, setProfileModalVisible] = useState(false);
+  const [points, setPoints] = useState(0);
+  const [achievements, setAchievements] = useState<Achievement[]>([
+    { id: 'first_workout', name: 'First Workout', description: 'Complete your first workout', icon: 'first_workout_icon', unlocked: false },
+    { id: 'week_warrior', name: 'Week Warrior', description: 'Complete all workouts for a week', icon: 'week_warrior_icon', unlocked: false },
+    { id: 'nutrition_master', name: 'Nutrition Master', description: 'Follow meal plan for a month', icon: 'nutrition_master_icon', unlocked: false },
+    { id: 'challenge_champion', name: 'Challenge Champion', description: 'Complete 5 challenges', icon: 'challenge_champion_icon', unlocked: false },
+    { id: 'bmi_improver', name: 'BMI Improver', description: 'Improve your BMI by 1 point', icon: 'bmi_improver_icon', unlocked: false },
+  ]);
+  const [challenges, setChallenges] = useState<Challenge[]>([]);
+  const [supplements, setSupplements] = useState<Supplement[]>([]);
+  const [customExercises, setCustomExercises] = useState<CustomExercise[]>([]);
+  const [mealPlan, setMealPlan] = useState<MealPlan | null>(null);
+  const [bmiHistory, setBmiHistory] = useState<{ date: string, bmi: number }[]>([]);
+  const [bmiModalVisible, setBmiModalVisible] = useState(false);
+  const [currentWeight, setCurrentWeight] = useState('');
+  const [challengesModalVisible, setChallengesModalVisible] = useState(false);
+  const [supplementsModalVisible, setSupplementsModalVisible] = useState(false);
+  const [mealPlanModalVisible, setMealPlanModalVisible] = useState(false);
+  const [customExerciseModalVisible, setCustomExerciseModalVisible] = useState(false);
+  const [customExerciseName, setCustomExerciseName] = useState('');
+  const [customExerciseDescription, setCustomExerciseDescription] = useState('');
+  const [settingsModalVisible, setSettingsModalVisible] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+  const [apiUri, setApiUri] = useState('');
+  const [agixtService, setAgixtService] = useState<AGiXTService | null>(null);
+  const [workoutFeedback, setWorkoutFeedback] = useState<WorkoutFeedback | null>(null);
+  const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
+  const [workoutPath, setWorkoutPath] = useState('');
+  const [isFirstLaunch, setIsFirstLaunch] = useState(true);
+  const [motivationalQuote, setMotivationalQuote] = useState('');
+  const [progressReport, setProgressReport] = useState<ProgressReport | null>(null);
+  const [alertModalVisible, setAlertModalVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+  const [feedbackAnalysis, setFeedbackAnalysis] = useState<FeedbackAnalysis | null>(null);
+  const [adaptiveWorkoutPlan, setAdaptiveWorkoutPlan] = useState<AdaptiveWorkoutPlan | null>(null);
+  const [anomalyDetectionResult, setAnomalyDetectionResult] = useState<AnomalyDetectionResult | null>(null);
+  const [personalizedRecommendation, setPersonalizedRecommendation] = useState<PersonalizedRecommendation | null>(null);
+  const [fitnessForecast, setFitnessForecast] = useState<FitnessForecast[]>([]);
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [workoutsCompleted, setWorkoutsCompleted] = useState(0);
+  const [showWelcome, setShowWelcome] = useState(true);
+  const [showWorkoutSelection, setShowWorkoutSelection] = useState(false);
+  const [workoutPreferences, setWorkoutPreferences] = useState<WorkoutPreferences | null>(null);
+  const [socialChallenges, setSocialChallenges] = useState<SocialChallenge[]>([]);
+  const [achievementsModalVisible, setAchievementsModalVisible] = useState(false);
+  const [selectedBodyPart, setSelectedBodyPart] = useState<string | null>(null);
+  const [bodyPartModalVisible, setBodyPartModalVisible] = useState(false);
+  const [isDemoMode, setIsDemoMode] = useState(false);
+  const [workoutAnalysis, setWorkoutAnalysis] = useState<WorkoutAnalysis | null>(null);
+  const [recentActivities, setRecentActivities] = useState<any[]>([]); // Updated to any[]
+  const [healthConnectAvailable, setHealthConnectAvailable] = useState(false);
+  const [healthConnectPermissionsGranted, setHealthConnectPermissionsGranted] = useState(false);
+
+
+  const showAlert = useCallback((title: string, message: string) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertModalVisible(true);
+  }, []);
+
+  useEffect(() => {
+    const initializeApp = async () => {
+      try {
+        setLoading(true);
+
+        // Get Demo Mode and API Settings from AsyncStorage
+        const storedDemoMode = await AsyncStorage.getItem('demoMode');
+        const storedApiKey = await AsyncStorage.getItem('apiKey');
+        const storedApiUri = await AsyncStorage.getItem('apiUri');
+
+        // Set Demo Mode
+        setIsDemoMode(storedDemoMode === 'true');
+
+        // Set API Key and URI
+        if (storedApiKey) {
+          setApiKey(storedApiKey);
+        }
+        if (storedApiUri) {
+          setApiUri(storedApiUri);
+        }
+
+        const service = new AGiXTService(isDemoMode);
+        if (!isDemoMode) {
           service.updateSettings(apiUri, apiKey);
           await service.initializeWorkoutAgent();
-          setAgixtService(service);
-  
-          const storedProfile = await AsyncStorage.getItem('userProfile');
-          const storedWorkoutPath = await AsyncStorage.getItem('workoutPath');
-          const storedWorkoutPlan = await AsyncStorage.getItem('currentWorkoutPlan');
-          const storedPoints = await AsyncStorage.getItem('points');
-          const storedWorkoutsCompleted = await AsyncStorage.getItem('workoutsCompleted');
-  
-          if (storedProfile && storedWorkoutPath && !isDemoMode) {
-            setUserProfile(JSON.parse(storedProfile));
-            setWorkoutPath(storedWorkoutPath);
-            setIsFirstLaunch(false);
-            if (storedWorkoutPlan) {
-              setWorkoutPlan(JSON.parse(storedWorkoutPlan));
-            }
-          } else {
-            setIsFirstLaunch(true);
-            // Pre-populate user profile with dummy data for demo mode
-            setUserProfile({
-              name: 'Demo User',
-              age: '30',
-              gender: 'Male',
-              feet: '5',
-              inches: '10',
-              weight: '170',
-              goal: 'Muscle Building',
-              fitnessLevel: 'Intermediate',
-              daysPerWeek: '4',
-              bio: 'This is a demo profile.',
-              interests: 'Weightlifting, Running',
-              profileImage: null,
-              level: 1,
-              experiencePoints: 0,
-              currentStreak: 0,
-              longestStreak: 0,
-              lastWorkoutDate: '',
-              coins: 0,
-              unlockedAchievements: [],
-              friends: [],
-            });
-            setWorkoutPath('Muscle Building');
-            // Generate dummy workout plan for demo mode
+        }
+        setAgixtService(service);
+
+        // Load User Profile and Data
+        const storedProfile = await AsyncStorage.getItem(isDemoMode ? 'demo_userProfile' : 'userProfile');
+        const storedWorkoutPath = await AsyncStorage.getItem(isDemoMode ? 'demo_workoutPath' : 'workoutPath');
+        const storedWorkoutPlan = await AsyncStorage.getItem(isDemoMode ? 'demo_currentWorkoutPlan' : 'currentWorkoutPlan');
+        const storedPoints = await AsyncStorage.getItem(isDemoMode ? 'demo_points' : 'points');
+        const storedWorkoutsCompleted = await AsyncStorage.getItem(isDemoMode ? 'demo_workoutsCompleted' : 'workoutsCompleted');
+        const storedAchievements = await AsyncStorage.getItem(isDemoMode ? 'demo_achievements' : 'achievements');
+        const storedBmiHistory = await AsyncStorage.getItem(isDemoMode ? 'demo_bmiHistory' : 'bmiHistory');
+        const storedMealPlan = await AsyncStorage.getItem(isDemoMode ? 'demo_mealPlan' : 'mealPlan');
+        const storedChallenges = await AsyncStorage.getItem(isDemoMode ? 'demo_challenges' : 'challenges');
+
+        if (storedProfile && storedWorkoutPath) {
+          setUserProfile(JSON.parse(storedProfile));
+          setWorkoutPath(storedWorkoutPath);
+          setIsFirstLaunch(false);
+          if (storedWorkoutPlan) {
+            setWorkoutPlan(JSON.parse(storedWorkoutPlan));
+          }
+          if (storedPoints) setPoints(parseInt(storedPoints, 10));
+          if (storedWorkoutsCompleted) setWorkoutsCompleted(parseInt(storedWorkoutsCompleted, 10));
+          if (storedAchievements) setAchievements(JSON.parse(storedAchievements));
+          if (storedBmiHistory) setBmiHistory(JSON.parse(storedBmiHistory));
+          if (storedMealPlan) setMealPlan(JSON.parse(storedMealPlan));
+          if (storedChallenges) setChallenges(JSON.parse(storedChallenges));
+        } else {
+          setIsFirstLaunch(true);
+          // Pre-populate user profile with dummy data for demo mode or first launch
+          setUserProfile({
+            name: isDemoMode ? 'Demo User' : '',
+            age: isDemoMode ? '30' : '',
+            gender: isDemoMode ? 'Male' : '',
+            feet: isDemoMode ? '5' : '',
+            inches: isDemoMode ? '10' : '',
+            weight: isDemoMode ? '170' : '',
+            goal: isDemoMode ? 'Muscle Building' : '',
+            fitnessLevel: isDemoMode ? 'Intermediate' : '',
+            daysPerWeek: isDemoMode ? '4' : '',
+            bio: isDemoMode ? 'This is a demo profile.' : '',
+            interests: isDemoMode ? 'Weightlifting, Running' : '',
+            profileImage: null,
+            level: 1,
+            experiencePoints: 0,
+            currentStreak: 0,
+            longestStreak: 0,
+            lastWorkoutDate: '',
+            coins: 0,
+            unlockedAchievements: [],
+            friends: [],
+          });
+          setWorkoutPath(isDemoMode ? 'Muscle Building' : '');
+          if (isDemoMode) {
             setWorkoutPlan([
               {
                 conversationName: 'DemoWorkout_1',
@@ -883,13 +910,10 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
                   weeklyPlan: [
                     {
                       day: 'Day 1 - Chest & Triceps',
-                      focus: 'Strength', // Make sure to include 'focus'
+                      focus: 'Strength',
                       exercises: [
                         { name: 'Bench Press', sets: 3, reps: '8-12', rest: '60 seconds' },
-                        { name: 'Incline Dumbbell Press', sets: 3, reps: '8-12', rest: '60 seconds' },
-                        { name: 'Dumbbell Flyes', sets: 3, reps: '10-15', rest: '60 seconds' },
-                        { name: 'Close-Grip Bench Press', sets: 3, reps: '8-12', rest: '60 seconds' },
-                        { name: 'Triceps Pushdowns', sets: 3, reps: '12-15', rest: '60 seconds' },
+                        // ... (Other exercises)
                       ],
                     },
                   ],
@@ -899,35 +923,67 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
                 difficulty: 3,
               },
             ]);
+            setAchievements([
+              { id: 'first_workout', name: 'First Workout', description: 'Complete your first workout', icon: 'first_workout_icon', unlocked: true },
+              { id: 'week_warrior', name: 'Week Warrior', description: 'Complete all workouts for a week', icon: 'week_warrior_icon', unlocked: false },
+              { id: 'nutrition_master', name: 'Nutrition Master', description: 'Follow meal plan for a month', icon: 'nutrition_master_icon', unlocked: false },
+              { id: 'challenge_champion', name: 'Challenge Champion', description: 'Complete 5 challenges', icon: 'challenge_champion_icon', unlocked: false },
+              { id: 'bmi_improver', name: 'BMI Improver', description: 'Improve your BMI by 1 point', icon: 'bmi_improver_icon', unlocked: false },
+            ]);
+            setBmiHistory([
+              { date: new Date().toISOString(), bmi: 24.5 },
+            ]);
+            setMealPlan({
+              breakfast: 'Demo Breakfast: Oatmeal with berries and nuts',
+              lunch: 'Demo Lunch: Chicken salad sandwich on whole-wheat bread',
+              dinner: 'Demo Dinner: Salmon with roasted vegetables',
+              snacks: ['Demo Snack 1: Greek yogurt with fruit', 'Demo Snack 2: Almonds'],
+            });
+            setChallenges([
+              {
+                id: 1,
+                name: 'Demo Challenge 1',
+                description: 'Complete 3 demo workouts this week.',
+                duration: '1 week',
+                difficulty: 'Easy',
+                completed: false,
+              },
+              {
+                id: 2,
+                name: 'Demo Challenge 2',
+                description: 'Run 5 miles.',
+                duration: '1 week',
+                difficulty: 'Medium',
+                completed: false,
+              },
+            ]);
           }
-  
-          if (storedPoints) setPoints(parseInt(storedPoints, 10)); // Use radix for parseInt
-          if (storedWorkoutsCompleted) setWorkoutsCompleted(parseInt(storedWorkoutsCompleted, 10));
-  
-          await initializeFeatures();
-        } catch (error) {
-          console.error('Error initializing app:', error);
-          showAlert('Error', 'Failed to initialize the app. Please restart.');
-        } finally {
-          setLoading(false);
         }
-      };
-  
-      initializeApp();
-    }, [apiUri]); // Add apiUri to the dependency array
 
-    const pickImage = async () => {
-      let result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 1,
-      });
-
-      if (!result.canceled) {
-        setUserProfile(prevProfile => ({ ...prevProfile, profileImage: result.assets[0].uri }));
+        await initializeFeatures();
+      } catch (error) {
+        console.error('Error initializing app:', error);
+        showAlert('Error', 'Failed to initialize the app. Please restart.');
+      } finally {
+        setLoading(false);
       }
     };
+
+    initializeApp();
+  }, []);
+
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setUserProfile(prevProfile => ({ ...prevProfile, profileImage: result.assets[0].uri }));
+    }
+  };
 
   const handleEditProfile = () => {
     setProfileModalVisible(true);
@@ -937,33 +993,32 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
     setSettingsModalVisible(true);
   };
 
-
   const loadMealPlan = useCallback(async () => {
     if (!agixtService) return;
     try {
       setLoading(true);
       const newMealPlan = await agixtService.getMealPlan(userProfile);
       setMealPlan(newMealPlan);
-      await AsyncStorage.setItem('mealPlan', JSON.stringify(newMealPlan));
+      await AsyncStorage.setItem(isDemoMode ? 'demo_mealPlan' : 'mealPlan', JSON.stringify(newMealPlan));
     } catch (error) {
       console.error('Error loading meal plan:', error);
       showAlert('Error', 'Failed to load meal plan. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, [agixtService, userProfile, showAlert]);
+  }, [agixtService, userProfile, showAlert, isDemoMode]);
 
   const loadChallenges = useCallback(async () => {
     if (!agixtService) return;
     try {
       setLoading(true);
-      const storedChallenges = await AsyncStorage.getItem('challenges');
+      const storedChallenges = await AsyncStorage.getItem(isDemoMode ? 'demo_challenges' : 'challenges');
       if (storedChallenges) {
         setChallenges(JSON.parse(storedChallenges));
       } else {
         const newChallenges = await agixtService.getChallenges(userProfile);
         setChallenges(newChallenges);
-        await AsyncStorage.setItem('challenges', JSON.stringify(newChallenges));
+        await AsyncStorage.setItem(isDemoMode ? 'demo_challenges' : 'challenges', JSON.stringify(newChallenges));
       }
     } catch (error) {
       console.error('Error loading challenges:', error);
@@ -971,7 +1026,7 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
     } finally {
       setLoading(false);
     }
-  }, [agixtService, userProfile, showAlert]);
+  }, [agixtService, userProfile, showAlert, isDemoMode]);
 
   const initializeFeatures = useCallback(async () => {
     if (!agixtService) {
@@ -1004,8 +1059,13 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
   }, []);
 
   const checkAchievementsAndUpdateState = useCallback(() => {
+    if (isDemoMode) {
+      showAlert('Demo Mode', 'Achievements are simulated in demo mode.');
+      return;
+    }
+
     const newAchievements = [...achievements];
-    if (!newAchievements[0].unlocked) {
+    if (!newAchievements[0].unlocked && workoutsCompleted >= 1) {
       newAchievements[0].unlocked = true;
       showAlert('Achievement Unlocked', 'You completed your first workout!');
       setPoints(prevPoints => prevPoints + 50);
@@ -1018,7 +1078,7 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
     setAchievements(newAchievements);
     AsyncStorage.setItem('achievements', JSON.stringify(newAchievements));
     AsyncStorage.setItem('points', points.toString());
-  }, [achievements, workoutsCompleted, showAlert, points]);
+  }, [achievements, workoutsCompleted, showAlert, points, isDemoMode]);
 
   const generateWorkouts = useCallback(async (preferences: WorkoutPreferences, bodyPart: string | null = null) => {
     if (!agixtService) {
@@ -1032,20 +1092,23 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
     try {
       const initialWorkouts = await agixtService.generateMultipleWorkouts(preferences, userProfile, 3, bodyPart);
       setWorkoutPlan(initialWorkouts);
-      await AsyncStorage.setItem('currentWorkoutPlan', JSON.stringify(initialWorkouts));
-      setPoints(prevPoints => {
-        const newPoints = prevPoints + 10;
-        AsyncStorage.setItem('points', newPoints.toString());
-        return newPoints;
-      });
-      checkAchievementsAndUpdateState();
+      await AsyncStorage.setItem(isDemoMode ? 'demo_currentWorkoutPlan' : 'currentWorkoutPlan', JSON.stringify(initialWorkouts));
+
+      if (!isDemoMode) {
+        setPoints(prevPoints => {
+          const newPoints = prevPoints + 10;
+          AsyncStorage.setItem('points', newPoints.toString());
+          return newPoints;
+        });
+        checkAchievementsAndUpdateState();
+      }
     } catch (err) {
       setError('Failed to generate workout plans');
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [agixtService, userProfile, checkAchievementsAndUpdateState, showAlert]);
+  }, [agixtService, userProfile, checkAchievementsAndUpdateState, showAlert, isDemoMode]);
 
   const handleWorkoutPreferencesComplete = async (preferences: WorkoutPreferences) => {
     setWorkoutPreferences(preferences);
@@ -1054,6 +1117,11 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
   };
 
   const calculateBMI = useCallback(() => {
+    if (isDemoMode) {
+      showAlert('Demo Mode', 'BMI calculation is simulated in demo mode.');
+      return;
+    }
+
     if (!currentWeight || !userProfile.feet || !userProfile.inches) {
       showAlert('Missing Information', 'Please ensure weight, feet, and inches are filled in.');
       return;
@@ -1070,7 +1138,7 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
 
     setBmiHistory(prevHistory => {
       const newHistory = [...prevHistory, newBmiEntry];
-      AsyncStorage.setItem('bmiHistory', JSON.stringify(newHistory));
+      AsyncStorage.setItem(isDemoMode ? 'demo_bmiHistory' : 'bmiHistory', JSON.stringify(newHistory));
       return newHistory;
     });
 
@@ -1079,24 +1147,29 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
     showAlert('BMI Calculated', `Your current BMI is ${newBmiEntry.bmi}`);
 
     // Check for BMI improvement achievement
-    if (bmiHistory.length > 0) {
-      const previousBmi = bmiHistory[bmiHistory.length - 1].bmi;
+    if (bmiHistory.length > 1) {
+      const previousBmi = bmiHistory[bmiHistory.length - 2].bmi;
       if (newBmiEntry.bmi < previousBmi && !achievements[4].unlocked) {
         const newAchievements = [...achievements];
         newAchievements[4].unlocked = true;
         setAchievements(newAchievements);
-        AsyncStorage.setItem('achievements', JSON.stringify(newAchievements));
+        AsyncStorage.setItem(isDemoMode ? 'demo_achievements' : 'achievements', JSON.stringify(newAchievements));
         showAlert('Achievement Unlocked', 'You improved your BMI!');
         setPoints(prevPoints => {
           const newPoints = prevPoints + 75;
-          AsyncStorage.setItem('points', newPoints.toString());
+          AsyncStorage.setItem(isDemoMode ? 'demo_points' : 'points', newPoints.toString());
           return newPoints;
         });
       }
     }
-  }, [currentWeight, userProfile, bmiHistory, achievements, showAlert]);
+  }, [currentWeight, userProfile, bmiHistory, achievements, showAlert, isDemoMode]);
 
   const createCustomExercise = useCallback(async () => {
+    if (isDemoMode) {
+      showAlert('Demo Mode', 'Adding custom exercises is simulated in demo mode.');
+      return;
+    }
+
     if (!agixtService) return;
     if (!customExerciseName || !customExerciseDescription) {
       showAlert('Missing Information', 'Please provide both name and description for the custom exercise.');
@@ -1139,18 +1212,17 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
       await AsyncStorage.setItem('apiUri', apiUri);
 
       // Update demo mode based on the saved API URI
-      setIsDemoMode(apiUri === 'demo_api_uri');
+      setIsDemoMode(apiUri === 'demo'); // Assuming 'demo' is the demo API URI
 
       const newService = new AGiXTService(isDemoMode);
-      newService.updateSettings(apiUri, apiKey);
-      await newService.initializeWorkoutAgent();
+      if (!isDemoMode) {
+        newService.updateSettings(apiUri, apiKey);
+        await newService.initializeWorkoutAgent();
+      }
 
       setAgixtService(newService);
-
       setSettingsModalVisible(false);
-
       showAlert('Settings Saved', 'Your AGiXT settings have been updated and saved.');
-
       initializeFeatures();
     } catch (error) {
       console.error('Error saving settings:', error);
@@ -1158,17 +1230,23 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
     } finally {
       setLoading(false);
     }
-  }, [apiKey, apiUri, initializeFeatures, showAlert]);
+  }, [apiKey, apiUri, initializeFeatures, showAlert, isDemoMode]);
 
   const saveProfile = useCallback(async () => {
-    await AsyncStorage.setItem('userProfile', JSON.stringify(userProfile));
-    await AsyncStorage.setItem('workoutPath', workoutPath);
+    await AsyncStorage.setItem(isDemoMode ? 'demo_userProfile' : 'userProfile', JSON.stringify(userProfile));
+    await AsyncStorage.setItem(isDemoMode ? 'demo_workoutPath' : 'workoutPath', workoutPath);
     setIsFirstLaunch(false);
     setProfileModalVisible(false);
     showAlert('Profile Saved', 'Your profile has been updated successfully.');
-  }, [userProfile, workoutPath, showAlert]);
+  }, [userProfile, workoutPath, showAlert, isDemoMode]);
 
   const handleWorkoutCompletion = useCallback(async (difficulty: 'easy' | 'just right' | 'hard') => {
+    if (isDemoMode) {
+      showAlert('Demo Mode', 'Workout completion is simulated in demo mode.');
+      // You can add more specific demo feedback here if needed
+      return;
+    }
+
     if (!workoutPlan.length || !agixtService) return;
 
     const feedback: WorkoutFeedback = {
@@ -1182,7 +1260,7 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
     try {
       setLoading(true);
       await agixtService.logWorkoutCompletion(userProfile, workoutPlan[0].workoutPlan, feedback);
-      
+
       // Update user profile
       let updatedProfile = updateStreak(userProfile);
       updatedProfile = addExperiencePoints(updatedProfile, 50);
@@ -1206,7 +1284,7 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
       setUserProfile(updatedProfile);
 
       // Instead of slicing, remove only the completed workout
-      const updatedWorkoutPlan = workoutPlan.filter((_, index) => index !== 0); 
+      const updatedWorkoutPlan = workoutPlan.filter((_, index) => index !== 0);
       setWorkoutPlan(updatedWorkoutPlan);
       await AsyncStorage.setItem('currentWorkoutPlan', JSON.stringify(updatedWorkoutPlan));
 
@@ -1222,7 +1300,7 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
     } finally {
       setLoading(false);
     }
-  }, [workoutPlan, agixtService, userProfile, generateWorkouts, workoutPreferences, showAlert, workoutsCompleted, achievements, selectedBodyPart]); 
+  }, [workoutPlan, agixtService, userProfile, generateWorkouts, workoutPreferences, showAlert, workoutsCompleted, achievements, selectedBodyPart, isDemoMode]);
 
   const refreshMotivationalQuote = useCallback(async () => {
     if (!agixtService) return;
@@ -1256,6 +1334,11 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
   }, [agixtService, userProfile, showAlert]);
 
   const completeChallenge = useCallback(async (challengeId: number) => {
+    if (isDemoMode) {
+      showAlert('Demo Mode', 'Completing challenges is simulated in demo mode.');
+      return;
+    }
+
     const updatedChallenges = challenges.map(challenge =>
       challenge.id === challengeId ? { ...challenge, completed: true } : challenge
     );
@@ -1287,6 +1370,11 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
   }, [challenges, achievements, showAlert]);
 
   const createSocialChallenge = useCallback(async (challengeDetails: Partial<SocialChallenge>) => {
+    if (isDemoMode) {
+      showAlert('Demo Mode', 'Creating social challenges is simulated in demo mode.');
+      return;
+    }
+
     if (!agixtService) return;
     try {
       setLoading(true);
@@ -1302,6 +1390,11 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
   }, [agixtService, userProfile, showAlert]);
 
   const joinSocialChallenge = useCallback(async (challengeId: string) => {
+    if (isDemoMode) {
+      showAlert('Demo Mode', 'Joining social challenges is simulated in demo mode.');
+      return;
+    }
+
     if (!agixtService) return;
     try {
       setLoading(true);
@@ -1322,13 +1415,17 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
     // For example, filter by duration or other relevant criteria
     const workoutActivities = records.filter(record => {
       // Example: Filter records with duration greater than 5 minutes
-      return record.duration > 300000; 
+      return record.duration > 300000;
     });
     return workoutActivities;
   };
 
   // Background task to fetch and process activities (updated)
   const backgroundTask = async () => {
+    if (isDemoMode) {
+      return BackgroundFetch.BackgroundFetchResult.NoData;
+    }
+
     try {
       if (!healthConnectAvailable || !healthConnectPermissionsGranted) {
         console.warn('Health Connect is not available or permissions are not granted.');
@@ -1412,70 +1509,75 @@ const NutritionTab: React.FC<NutritionTabProps> = ({ mealPlan, onUpdateMealPlan 
       const storedApiKey = await AsyncStorage.getItem('apiKey'); // Get API key from storage
       const storedApiUri = await AsyncStorage.getItem('apiUri'); // Get API URI from storage
 
-      if (storedApiKey && storedApiUri) {
-        const service = new AGiXTService(false); // Assuming not in demo mode
+      if (storedApiKey && storedApiUri && !isDemoMode) {
+        const service = new AGiXTService(isDemoMode);
         service.updateSettings(storedApiUri, storedApiKey);
         setAgixtService(service);
       }
     };
-
+      
     initAgixtService();
-  }, []);
+  }, [isDemoMode]);
 
-// Register and manage the background task
-useEffect(() => {
-  const registerBackgroundTask = async () => {
-    const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_FETCH_TASK);
-    if (!isRegistered) {
-      try {
-        await BackgroundFetch.registerTaskAsync(BACKGROUND_FETCH_TASK, {
-          minimumInterval: 15 * 60, // 15 minutes
-          stopOnTerminate: false,
-          startOnBoot: true,
-        });
-      } catch (error) {
-        console.error('Error registering background fetch task:', error);
+  // Register and manage the background task
+  useEffect(() => {
+    const registerBackgroundTask = async () => {
+      const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_FETCH_TASK);
+      if (!isRegistered) {
+        try {
+          await BackgroundFetch.registerTaskAsync(BACKGROUND_FETCH_TASK, {
+            minimumInterval: 15 * 60, // 15 minutes
+            stopOnTerminate: false,
+            startOnBoot: true,
+          });
+        } catch (error) {
+          console.error('Error registering background fetch task:', error);
+        }
       }
-    }
 
-    return () => {
-      BackgroundFetch.unregisterTaskAsync(BACKGROUND_FETCH_TASK);
+      return () => {
+        BackgroundFetch.unregisterTaskAsync(BACKGROUND_FETCH_TASK);
+      };
     };
-  };
 
-  if (healthConnectAvailable && healthConnectPermissionsGranted) {
-    registerBackgroundTask();
-  }
-}, [healthConnectAvailable, healthConnectPermissionsGranted]);
+    if (healthConnectAvailable && healthConnectPermissionsGranted) {
+      registerBackgroundTask();
+    }
+  }, [healthConnectAvailable, healthConnectPermissionsGranted]);
 
   // *** Example UI for Displaying Recommendations ***
   return (
     <ErrorBoundary>
       <SafeAreaView style={styles.container}>
+        {isDemoMode && (
+          <View style={styles.demoModeBanner}>
+            <Text style={styles.demoModeBannerText}>Demo Mode</Text>
+          </View>
+        )}
         <NavigationContainer>
           <Stack.Navigator initialRouteName={isFirstLaunch ? "Welcome" : "Main"}>
-            <Stack.Screen 
-              name="Welcome" 
-              component={WelcomeScreen} 
-              options={{ headerShown: false }} 
+            <Stack.Screen
+              name="Welcome"
+              component={WelcomeScreen}
+              options={{ headerShown: false }}
             />
-            <Stack.Screen 
-              name="WorkoutSelection" 
+            <Stack.Screen
+              name="WorkoutSelection"
               options={{ headerShown: false }}
             >
               {(props) => (
-                <WorkoutSelectionScreen 
-                  {...props} 
-                  onComplete={handleWorkoutPreferencesComplete} 
+                <WorkoutSelectionScreen
+                  {...props}
+                  onComplete={handleWorkoutPreferencesComplete}
                 />
               )}
             </Stack.Screen>
             <Stack.Screen name="Main" options={{ headerShown: false }}>
               {() => (
                 <Tab.Navigator
-                screenOptions={({ route }) => ({
-                  headerShown: false, 
-                  tabBarIcon: ({ focused, color, size }) => {
+                  screenOptions={({ route }) => ({
+                    headerShown: false,
+                    tabBarIcon: ({ focused, color, size }) => {
                       let iconName: any;
 
                       if (route.name === 'Dashboard') {
@@ -1499,36 +1601,36 @@ useEffect(() => {
                     tabBarLabelStyle: styles.tabText,
                   })}
                 >
-    <Tab.Screen name="Dashboard">
-      {(props) => (
-        <DashboardTab
-          {...props} 
-          userProfile={userProfile}
-          workoutPlan={workoutPlan[0]}
-          points={points}
-          motivationalQuote={motivationalQuote}
-          refreshQuote={refreshMotivationalQuote}
-          onEditProfile={handleEditProfile}
-          onOpenSettings={handleOpenSettings}
-        />
-      )}
-    </Tab.Screen>
+                  <Tab.Screen name="Dashboard">
+                    {(props) => (
+                      <DashboardTab
+                        {...props}
+                        userProfile={userProfile}
+                        workoutPlan={workoutPlan[0]}
+                        points={points}
+                        motivationalQuote={motivationalQuote}
+                        refreshQuote={refreshMotivationalQuote}
+                        onEditProfile={handleEditProfile}
+                        onOpenSettings={handleOpenSettings}
+                      />
+                    )}
+                  </Tab.Screen>
 
-    <Tab.Screen name="Workout">
-      {(props) => (
-        <WorkoutTab
-          {...props}
-          workoutPlan={workoutPlan}
-          onGenerateWorkout={(bodyPart) => {
-            if (workoutPreferences) { // Check if workoutPreferences is not null
-              generateWorkouts(workoutPreferences, bodyPart);
-            }
-          }}
-          onCompleteWorkout={handleWorkoutCompletion}
-          workoutPreferences={workoutPreferences} 
-        />
-      )}
-    </Tab.Screen>
+                  <Tab.Screen name="Workout">
+                    {(props) => (
+                      <WorkoutTab
+                        {...props}
+                        workoutPlan={workoutPlan}
+                        onGenerateWorkout={(bodyPart) => {
+                          if (workoutPreferences) { // Check if workoutPreferences is not null
+                            generateWorkouts(workoutPreferences, bodyPart);
+                          }
+                        }}
+                        onCompleteWorkout={handleWorkoutCompletion}
+                        workoutPreferences={workoutPreferences}
+                      />
+                    )}
+                  </Tab.Screen>
                   <Tab.Screen name="Nutrition">
                     {(props) => (
                       <NutritionTab
@@ -1687,21 +1789,39 @@ useEffect(() => {
           <View style={styles.modalContainer}>
             <View style={styles.modalContent}>
               <Text style={styles.modalHeader}>AGiXT Settings</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="API Key"
-                value={apiKey}
-                onChangeText={setApiKey}
-                placeholderTextColor="#ccc"
-                secureTextEntry
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="API URI"
-                value={apiUri}
-                onChangeText={setApiUri}
-                placeholderTextColor="#ccc"
-              />
+              <View style={styles.demoModeSwitchContainer}>
+                <Text style={styles.demoModeSwitchText}>Demo Mode</Text>
+                <Switch
+                  value={isDemoMode}
+                  onValueChange={async (value) => {
+                    setIsDemoMode(value);
+                    await AsyncStorage.setItem('demoMode', value.toString());
+                    // You might want to reload the app or navigate to the welcome screen here
+                    // to fully switch between demo and normal modes.
+                  }}
+                  trackColor={{ false: '#767577', true: '#FFD700' }}
+                  thumbColor={isDemoMode ? '#f4f3f4' : '#f4f3f4'}
+                />
+              </View>
+              {!isDemoMode && (
+                <>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="API Key"
+                    value={apiKey}
+                    onChangeText={setApiKey}
+                    placeholderTextColor="#ccc"
+                    secureTextEntry
+                  />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="API URI"
+                    value={apiUri}
+                    onChangeText={setApiUri}
+                    placeholderTextColor="#ccc"
+                  />
+                </>
+              )}
               <TouchableOpacity style={styles.modalButton} onPress={saveSettings}>
                 <Text style={styles.modalButtonText}>Save Settings</Text>
               </TouchableOpacity>
@@ -1732,36 +1852,34 @@ useEffect(() => {
               <TouchableOpacity style={styles.feedbackOption} onPress={() => handleWorkoutCompletion('hard')}>
                 <Text style={styles.feedbackOptionText}>Hard</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setFeedbackModalVisible
-                           (false)}>
-                           <Text style={styles.modalButtonText}>Cancel</Text>
-                         </TouchableOpacity>
-                         </View>
-                     </View>
-                   </Modal>
+              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setFeedbackModalVisible(false)}>
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
-                                     {/* Achievements Modal */}
-                                     <AchievementsModal
-                     visible={achievementsModalVisible}
-                     onClose={() => setAchievementsModalVisible(false)}
-                     userProfile={userProfile}
-                     achievements={achievements}
-                   />
-           
-                   {/* Recommendation UI */}
-                   <View style={styles.recommendationContainer}>
-                     {workoutAnalysis && (
-                       <Text style={styles.recommendationText}>
-                         {workoutAnalysis.recommendation}
-                       </Text>
-                     )}
-                   </View>
-                   
-                 </SafeAreaView>
-               </ErrorBoundary>
-             );
-           };
-           
+        {/* Achievements Modal */}
+        <AchievementsModal
+          visible={achievementsModalVisible}
+          onClose={() => setAchievementsModalVisible(false)}
+          userProfile={userProfile}
+          achievements={achievements}
+        />
+
+        {/* Recommendation UI */}
+        <View style={styles.recommendationContainer}>
+          {workoutAnalysis && (
+            <Text style={styles.recommendationText}>
+              {workoutAnalysis.recommendation}
+            </Text>
+          )}
+        </View>
+
+      </SafeAreaView>
+    </ErrorBoundary>
+  );
+};
            
            
            // Styles
@@ -2548,6 +2666,27 @@ useEffect(() => {
                color: '#FFD700', // Or your preferred text color
                fontSize: 16,
              },
+             demoModeBanner: {
+              backgroundColor: '#FFD700',
+              padding: 10,
+              alignItems: 'center',
+            },
+            demoModeBannerText: {
+              color: '#000',
+              fontWeight: 'bold',
+              fontSize: 16,
+            },
+            demoModeSwitchContainer: {
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 10,
+            },
+            demoModeSwitchText: {
+              color: '#fff',
+              fontSize: 16,
+            },
+            
            });
            
            export default WorkoutApp; 
