@@ -1090,10 +1090,44 @@ const WorkoutApp: React.FC = () => {
   setError(null);
 
   try {
-    let initialWorkouts: WorkoutPlanResponse[] | Promise<WorkoutPlanResponse[]> = []; // Updated type
-    
+    let initialWorkouts: WorkoutPlanResponse[] | Promise<WorkoutPlanResponse[]> = [];
+
     if (isDemoMode) {
-      initialWorkouts = agixtService?.generateMultipleWorkouts(preferences, userProfile, 3, bodyPart) || [];
+      // Use predefined demo workout data
+      initialWorkouts = [
+        {
+          conversationName: 'DemoWorkout_1',
+          workoutPlan: {
+            weeklyPlan: [
+              {
+                day: 'Day 1 - Chest & Triceps',
+                focus: 'Strength',
+                exercises: [
+                  { name: 'Bench Press', sets: 3, reps: '8-12', rest: '60 seconds' },
+                  { name: 'Incline Dumbbell Press', sets: 3, reps: '8-12', rest: '60 seconds' },
+                  { name: 'Dumbbell Flyes', sets: 3, reps: '10-15', rest: '60 seconds' },
+                  { name: 'Close-Grip Bench Press', sets: 3, reps: '8-12', rest: '60 seconds' },
+                  { name: 'Triceps Pushdowns', sets: 3, reps: '12-15', rest: '60 seconds' },
+                ],
+              },
+              {
+                day: 'Day 2 - Back & Biceps',
+                focus: 'Strength',
+                exercises: [
+                  { name: 'Pull-ups', sets: 3, reps: 'As many as possible', rest: '60 seconds' },
+                  { name: 'Barbell Rows', sets: 3, reps: '8-12', rest: '60 seconds' },
+                  { name: 'Lat Pulldowns', sets: 3, reps: '10-15', rest: '60 seconds' },
+                  { name: 'Dumbbell Curls', sets: 3, reps: '10-12', rest: '60 seconds' },
+                  { name: 'Hammer Curls', sets: 3, reps: '12-15', rest: '60 seconds' },
+                ],
+              },
+            ],
+            nutritionAdvice: 'Eat plenty of protein and complex carbohydrates.',
+          },
+          completed: false,
+          difficulty: 3,
+        },
+      ];
     } else if (agixtService) {
       // Await the asynchronous call:
       initialWorkouts = await agixtService.generateMultipleWorkouts(preferences, userProfile, 3, bodyPart) || [];
@@ -1123,6 +1157,7 @@ const WorkoutApp: React.FC = () => {
     setLoading(false);
   }
 }, [agixtService, userProfile, checkAchievementsAndUpdateState, showAlert, isDemoMode]);
+
 
 
  const handleWorkoutPreferencesComplete = async (preferences: WorkoutPreferences) => {
