@@ -2063,7 +2063,6 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0, // Android status bar padding
   },
   gradient: {
-    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
@@ -2865,7 +2864,6 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    borderTopWidth: 1,
     borderTopColor: '#333',
     backgroundColor: '#1a1a1a',
     height: 60,
