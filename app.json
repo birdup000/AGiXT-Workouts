@@ -2,7 +2,7 @@
   "expo": {
     "name": "agixt-workouts",
     "slug": "agixt-workouts",
-    "version": "0.1.0",
+    "version": "0.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -18,14 +18,30 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.greengecko.agixtworkouts"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "react-native-health-connect",
-      "react-native-background-fetch"
-    ]
+      "react-native-background-fetch",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 34,
+            "targetSdkVersion": 34,
+            "minSdkVersion": 26
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "9e700ae1-48d0-4ac3-b2c2-78fe906896ee"
+      }
+    }
   }
 }
