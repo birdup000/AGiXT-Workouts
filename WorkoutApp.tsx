@@ -1884,97 +1884,105 @@ const WorkoutApp: React.FC = () => {
             <Stack.Screen name="Main" options={{ headerShown: false }}>
               {() => (
                 <Tab.Navigator
-                  screenOptions={({ route }) => ({
-                    headerShown: false,
-                    tabBarIcon: ({ focused, color, size }) => {
-                      let iconName: any;
+  screenOptions={({ route }) => ({
+    headerShown: false,
+    tabBarIcon: ({ focused, color, size }) => {
+      let iconName: any;
 
-                      if (route.name === 'Dashboard') {
-                        iconName = focused ? 'home' : 'home-outline';
-                      } else if (route.name === 'Workout') {
-                        iconName = focused ? 'fitness' : 'fitness-outline';
-                      } else if (route.name === 'Nutrition') {
-                        iconName = focused ? 'nutrition' : 'nutrition-outline';
-                      } else if (route.name === 'Progress') {
-                        iconName = focused ? 'trending-up' : 'trending-up-outline';
-                      } else if (route.name === 'Social') {
-                        iconName = focused ? 'people' : 'people-outline';
-                      }
+      if (route.name === 'Dashboard') {
+        iconName = focused ? 'home' : 'home-outline';
+      } else if (route.name === 'Workout') {
+        iconName = focused ? 'fitness' : 'fitness-outline';
+      } else if (route.name === 'Nutrition') {
+        iconName = focused ? 'nutrition' : 'nutrition-outline';
+      } else if (route.name === 'Progress') {
+        iconName = focused ? 'trending-up' : 'trending-up-outline';
+      } else if (route.name === 'Social') {
+        iconName = focused ? 'people' : 'people-outline';
+      }
 
-                      return (
-                        <View style={styles.tabItem}> 
-                          <Ionicons name={iconName} size={size} color={color} style={styles.tabIcon} />
-                          <Text style={focused ? styles.activeTabText : styles.tabText}>{route.name}</Text>
-                        </View>
-                      );
-                    },
-                    tabBarActiveTintColor: '#FFA500', 
-                    tabBarInactiveTintColor: '#FFD700', 
-                    tabBarStyle: styles.tabBar,
-                    backgroundColor: '#000',
-                  })}
-                >
-                  <Tab.Screen name="Dashboard">
-                    {(props) => (
-                      <MemoizedDashboardTab
-                        {...props}
-                        userProfile={userProfile}
-                        workoutPlan={workoutPlan[0]}
-                        points={points}
-                        motivationalQuote={motivationalQuote}
-                        refreshQuote={refreshMotivationalQuote}
-                        onEditProfile={handleEditProfile}
-                        onOpenSettings={handleOpenSettings}
-                      />
-                    )}
-                  </Tab.Screen>
+      return <Ionicons name={iconName} size={28} color={color} />;
+    },
+    tabBarActiveTintColor: '#FFA500',
+    tabBarInactiveTintColor: '#FFD700',
+    tabBarStyle: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      borderTopWidth: 1,
+      borderTopColor: '#333',
+      backgroundColor: '#1a1a1a',
+      height: 60,
+      paddingBottom: 5,
+    },
+    tabBarLabelStyle: {
+      fontSize: 12,
+    },
+  })}
+>
+  <Tab.Screen name="Dashboard">
+    {(props) => (
+      <MemoizedDashboardTab
+        {...props}
+        userProfile={userProfile}
+        workoutPlan={workoutPlan[0]}
+        points={points}
+        motivationalQuote={motivationalQuote}
+        refreshQuote={refreshMotivationalQuote}
+        onEditProfile={handleEditProfile}
+        onOpenSettings={handleOpenSettings}
+      />
+    )}
+  </Tab.Screen>
 
-                  <Tab.Screen name="Workout">
-                    {(props) => (
-                      <MemoizedWorkoutTab
-                        {...props}
-                        workoutPlan={workoutPlan}
-                        onGenerateWorkout={(bodyPart) => {
-                          if (workoutPreferences) {
-                            generateWorkouts(workoutPreferences, bodyPart);
-                          }
-                        }}
-                        onCompleteWorkout={handleWorkoutCompletion}
-                        workoutPreferences={workoutPreferences}
-                      />
-                    )}
-                  </Tab.Screen>
-                  <Tab.Screen name="Nutrition">
-                    {(props) => (
-                      <MemoizedNutritionTab
-                        {...props}
-                        mealPlan={mealPlan}
-                        onUpdateMealPlan={loadMealPlan}
-                      />
-                    )}
-                  </Tab.Screen>
-                  <Tab.Screen name="Progress">
-                    {(props) => (
-                      <MemoizedProgressTab
-                        {...props}
-                        bmiHistory={bmiHistory}
-                        progressReport={progressReport}
-                        onCalculateBMI={() => setBmiModalVisible(true)}
-                        onGenerateReport={getProgressReport}
-                      />
-                    )}
-                  </Tab.Screen>
-                  <Tab.Screen name="Social">
-                    {(props) => (
-                      <MemoizedSocialTab
-                        {...props}
-                        socialChallenges={socialChallenges}
-                        onCreateChallenge={createSocialChallenge}
-                        onJoinChallenge={joinSocialChallenge}
-                      />
-                    )}
-                  </Tab.Screen>
-                </Tab.Navigator>
+  <Tab.Screen name="Workout">
+    {(props) => (
+      <MemoizedWorkoutTab
+        {...props}
+        workoutPlan={workoutPlan}
+        onGenerateWorkout={(bodyPart) => {
+          if (workoutPreferences) {
+            generateWorkouts(workoutPreferences, bodyPart);
+          }
+        }}
+        onCompleteWorkout={handleWorkoutCompletion}
+        workoutPreferences={workoutPreferences}
+      />
+    )}
+  </Tab.Screen>
+
+  <Tab.Screen name="Nutrition">
+    {(props) => (
+      <MemoizedNutritionTab
+        {...props}
+        mealPlan={mealPlan}
+        onUpdateMealPlan={loadMealPlan}
+      />
+    )}
+  </Tab.Screen>
+
+  <Tab.Screen name="Progress">
+    {(props) => (
+      <MemoizedProgressTab
+        {...props}
+        bmiHistory={bmiHistory}
+        progressReport={progressReport}
+        onCalculateBMI={() => setBmiModalVisible(true)}
+        onGenerateReport={getProgressReport}
+      />
+    )}
+  </Tab.Screen>
+
+  <Tab.Screen name="Social">
+    {(props) => (
+      <MemoizedSocialTab
+        {...props}
+        socialChallenges={socialChallenges}
+        onCreateChallenge={createSocialChallenge}
+        onJoinChallenge={joinSocialChallenge}
+      />
+    )}
+  </Tab.Screen>
+</Tab.Navigator>
               )}
             </Stack.Screen>
           </Stack.Navigator>
@@ -2087,14 +2095,6 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     backgroundColor: '#000',
-  },
-  tabBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#333',
-    backgroundColor: '#1a1a1a',
   },
   tabItem: {
     alignItems: 'center',
@@ -2861,6 +2861,15 @@ const styles = StyleSheet.create({
   tabIcon: {
     width: 24,
     height: 24,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+    backgroundColor: '#1a1a1a',
+    height: 60,
+    paddingBottom: 5,
   },
 });
 
