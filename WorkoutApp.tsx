@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, SetStateAction } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo, SetStateAction } from 'react';
 import {
   View,
   Text,
@@ -16,12 +16,12 @@ import {
   Animated,
   FlatList,
   Switch,
+  StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Audio } from 'expo-av';
 import { LineChart } from 'react-native-chart-kit';
 import LottieView from 'lottie-react-native';
 import { NavigationContainer } from '@react-navigation/native';
@@ -256,6 +256,7 @@ const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ isVisible }) => {
   return (
     <View style={styles.loadingOverlay}>
       <ActivityIndicator size="large" color="#FFD700" />
+      <Text style={styles.loadingText}>Loading...</Text> 
     </View>
   );
 };
@@ -537,16 +538,12 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ userProfile, workoutPlan, p
           </TouchableOpacity>
         </View>
 
-        <View style={{ width: 150, height: 150, overflow: 'hidden', alignSelf: 'center' }}>
+        <View style={styles.animationContainer}> 
           <LottieView
-            source={require('./assets/animations/exercise.json')} // Replace with your actual animation file
+            source={require('./assets/animations/exercise.json')} 
             autoPlay
             loop
-            style={{
-              width: 150,
-              height: 150,
-              transform: [{ scale: 0.5 }]
-            }}
+            style={styles.animation}
             resizeMode="cover"
             speed={1}
           />
@@ -891,7 +888,7 @@ const WorkoutApp: React.FC = () => {
       await AsyncStorage.setItem(isDemoMode ? 'demo_mealPlan' : 'mealPlan', JSON.stringify(newMealPlan));
     } catch (error) {
       console.error('Error loading meal plan:', error);
-      showAlert('Error', 'Failed to load meal plan. Please try again.');
+      showAlert('Error', 'Failed to load meal plan. Please try again later.'); // More specific error message
     } finally {
       setLoading(false);
     }
@@ -911,7 +908,7 @@ const WorkoutApp: React.FC = () => {
       }
     } catch (error) {
       console.error('Error loading challenges:', error);
-      showAlert('Error', 'Failed to load challenges. Please try again.');
+      showAlert('Error', 'Failed to load challenges. Please try again later.'); // More specific error message
     } finally {
       setLoading(false);
     }
@@ -1608,6 +1605,13 @@ const WorkoutApp: React.FC = () => {
     }
   }, [healthConnectAvailable, healthConnectPermissionsGranted]);
 
+  // Memoized components for better performance
+  const MemoizedDashboardTab = useMemo(() => React.memo(DashboardTab), []);
+  const MemoizedWorkoutTab = useMemo(() => React.memo(WorkoutTab), []);
+  const MemoizedNutritionTab = useMemo(() => React.memo(NutritionTab), []);
+  const MemoizedProgressTab = useMemo(() => React.memo(ProgressTab), []);
+  const MemoizedSocialTab = useMemo(() => React.memo(SocialTab), []);
+
   return (
     <ErrorBoundary>
       <SafeAreaView style={styles.container}>
@@ -1665,7 +1669,7 @@ const WorkoutApp: React.FC = () => {
                 >
                   <Tab.Screen name="Dashboard">
                     {(props) => (
-                      <DashboardTab
+                      <MemoizedDashboardTab
                         {...props}
                         userProfile={userProfile}
                         workoutPlan={workoutPlan[0]}
@@ -1676,278 +1680,280 @@ const WorkoutApp: React.FC = () => {
                         onOpenSettings={handleOpenSettings}
                         />
                       )}
-                      </Tab.Screen>
-    
-                      <Tab.Screen name="Workout">
-                        {(props) => (
-                          <WorkoutTab
-                            {...props}
-                            workoutPlan={workoutPlan}
-                            onGenerateWorkout={(bodyPart) => {
-                              if (workoutPreferences) {
-                                generateWorkouts(workoutPreferences, bodyPart);
-                              }
-                            }}
-                            onCompleteWorkout={handleWorkoutCompletion}
-                            workoutPreferences={workoutPreferences}
-                          />
-                        )}
-                      </Tab.Screen>
-                      <Tab.Screen name="Nutrition">
-                        {(props) => (
-                          <NutritionTab
-                            {...props}
-                            mealPlan={mealPlan}
-                            onUpdateMealPlan={loadMealPlan}
-                          />
-                        )}
-                      </Tab.Screen>
-                      <Tab.Screen name="Progress">
-                        {(props) => (
-                          <ProgressTab
-                            {...props}
-                            bmiHistory={bmiHistory}
-                            progressReport={progressReport}
-                            onCalculateBMI={() => setBmiModalVisible(true)}
-                            onGenerateReport={getProgressReport}
-                          />
-                        )}
-                      </Tab.Screen>
-                      <Tab.Screen name="Social">
-                        {(props) => (
-                          <SocialTab
-                            {...props}
-                            socialChallenges={socialChallenges}
-                            onCreateChallenge={createSocialChallenge}
-                            onJoinChallenge={joinSocialChallenge}
-                          />
-                        )}
-                      </Tab.Screen>
-                    </Tab.Navigator>
-                  )}
-                </Stack.Screen>
-              </Stack.Navigator>
-            </NavigationContainer>
-    
-            <AlertModal
-              visible={alertModalVisible}
-              title={alertTitle}
-              message={alertMessage}
-              onClose={() => setAlertModalVisible(false)}
-            />
-            <LoadingOverlay isVisible={loading} />
-    
-            {/* Profile Modal */}
-            <Modal
-              animationType="slide"
-              transparent={true}
-              visible={profileModalVisible}
-              onRequestClose={() => setProfileModalVisible(false)}
-            >
-              <View style={styles.modalContainer}>
-                <View style={styles.modalContent}>
-                  <Text style={styles.modalHeader}>Edit Profile</Text>
-                  <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
-                    {userProfile.profileImage ? (
-                      <Image source={{ uri: userProfile.profileImage }} style={styles.profileImage} />
-                    ) : (
-                      <Text style={styles.imagePickerText}>Upload Profile Picture</Text>
-                    )}
-                  </TouchableOpacity>
-                  <ScrollView style={styles.inputScrollView}>
-                    <Formik
-                      initialValues={userProfile}
-                      onSubmit={saveProfile}
-                      validationSchema={Yup.object().shape({
-                        name: Yup.string().required('Name is required'),
-                        age: Yup.number().required('Age is required').positive().integer(),
-                        gender: Yup.string().required('Gender is required'),
-                        feet: Yup.number().required('Height (feet) is required').positive().integer(),
-                        inches: Yup.number().required('Height (inches) is required').min(0).max(11).integer(),
-                        weight: Yup.number().required('Weight is required').positive(),
-                        goal: Yup.string().required('Fitness goal is required'),
-                        fitnessLevel: Yup.string().required('Fitness level is required'),
-                        daysPerWeek: Yup.number().required('Days per week is required').min(1).max(7).integer(),
-                        bio: Yup.string(),
-                        interests: Yup.string()
-                      })}
-                    >
-                      {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
-                        <>
-                          {Object.keys(userProfile).map((key) => (
-                            <View key={key}>
-                              {key !== 'profileImage' && (
-                                <TextInput
-                                  style={styles.input}
-                                  placeholder={key.charAt(0).toUpperCase() + key.slice(1)}
-                                  value={values[key as keyof UserProfile]?.toString()}
-                                  onChangeText={handleChange(key)}
-                                  onBlur={handleBlur(key)}
-                                  placeholderTextColor="#ccc"
-                                  keyboardType={key === 'age' || key === 'weight' || key === 'feet' || key === 'inches' || key === 'daysPerWeek' ? 'numeric' : 'default'}
-                                />
-                              )}
-                              {errors[key as keyof UserProfile] && touched[key as keyof UserProfile] && (
-                                <Text style={styles.errorText}>{errors[key as keyof UserProfile]}</Text>
-                              )}
-                            </View>
-                          ))}
-                          <TextInput
-                            style={styles.input}
-                            placeholder="Workout Path (e.g., muscle builder, weight loss)"
-                            value={workoutPath}
-                            onChangeText={setWorkoutPath}
-                            placeholderTextColor="#ccc"
-                          />
-                          <TouchableOpacity style={styles.modalButton} onPress={() => handleSubmit()}>
-                            <Text style={styles.modalButtonText}>Save</Text>
-                          </TouchableOpacity>
-                        </>
+                    </Tab.Screen>
+  
+                    <Tab.Screen name="Workout">
+                      {(props) => (
+                        <MemoizedWorkoutTab
+                          {...props}
+                          workoutPlan={workoutPlan}
+                          onGenerateWorkout={(bodyPart) => {
+                            if (workoutPreferences) {
+                              generateWorkouts(workoutPreferences, bodyPart);
+                            }
+                          }}
+                          onCompleteWorkout={handleWorkoutCompletion}
+                          workoutPreferences={workoutPreferences}
+                        />
                       )}
-                    </Formik>
-                  </ScrollView>
-                  <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setProfileModalVisible(false)}>
-                    <Text style={styles.modalButtonText}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </Modal>
-    
-            {/* BMI Modal */}
-            <Modal
-              animationType="slide"
-              transparent={true}
-              visible={bmiModalVisible}
-              onRequestClose={() => setBmiModalVisible(false)}
-            >
-              <View style={styles.modalContainer}>
-                <View style={styles.modalContent}>
-                  <Text style={styles.modalHeader}>Calculate BMI</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Current Weight (lbs)"
-                    value={currentWeight}
-                    onChangeText={setCurrentWeight}
-                    keyboardType="numeric"
-                    placeholderTextColor="#ccc"
-                  />
-                  <TouchableOpacity style={styles.modalButton} onPress={calculateBMI}>
-                    <Text style={styles.modalButtonText}>Calculate</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setBmiModalVisible(false)}>
-                    <Text style={styles.modalButtonText}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </Modal>
-    
-            {/* Settings Modal */}
-            <Modal
-              animationType="slide"
-              transparent={true}
-              visible={settingsModalVisible}
-              onRequestClose={() => setSettingsModalVisible(false)}
-            >
-              <View style={styles.modalContainer}>
-                <View style={styles.modalContent}>
-                  <Text style={styles.modalHeader}>AGiXT Settings</Text>
-                  <View style={styles.demoModeSwitchContainer}>
-                    <Text style={styles.demoModeSwitchText}>Demo Mode</Text>
-                    <Switch
-                      value={isDemoMode}
-                      onValueChange={async (value) => {
-                        setIsDemoMode(value);
-                        await AsyncStorage.setItem('demoMode', value.toString());
-                        // Reload the app after saving settings
-                        Updates.reloadAsync();
-                      }}
-                      trackColor={{ false: '#767577', true: '#FFD700' }}
-                      thumbColor={isDemoMode ? '#f4f3f4' : '#f4f3f4'}
-                    />
-                  </View>
-                  {!isDemoMode && (
-                    <>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="API Key"
-                        value={apiKey}
-                        onChangeText={setApiKey}
-                        placeholderTextColor="#ccc"
-                        secureTextEntry
-                      />
-                      <TextInput
-                        style={styles.input}
-                        placeholder="API URI"
-                        value={apiUri}
-                        onChangeText={setApiUri}
-                        placeholderTextColor="#ccc"
-                      />
-                    </>
+                    </Tab.Screen>
+                    <Tab.Screen name="Nutrition">
+                      {(props) => (
+                        <MemoizedNutritionTab
+                          {...props}
+                          mealPlan={mealPlan}
+                          onUpdateMealPlan={loadMealPlan}
+                        />
+                      )}
+                    </Tab.Screen>
+                    <Tab.Screen name="Progress">
+                      {(props) => (
+                        <MemoizedProgressTab
+                          {...props}
+                          bmiHistory={bmiHistory}
+                          progressReport={progressReport}
+                          onCalculateBMI={() => setBmiModalVisible(true)}
+                          onGenerateReport={getProgressReport}
+                        />
+                      )}
+                    </Tab.Screen>
+                    <Tab.Screen name="Social">
+                      {(props) => (
+                        <MemoizedSocialTab
+                          {...props}
+                          socialChallenges={socialChallenges}
+                          onCreateChallenge={createSocialChallenge}
+                          onJoinChallenge={joinSocialChallenge}
+                        />
+                      )}
+                    </Tab.Screen>
+                  </Tab.Navigator>
+                )}
+              </Stack.Screen>
+            </Stack.Navigator>
+          </NavigationContainer>
+  
+          <AlertModal
+            visible={alertModalVisible}
+            title={alertTitle}
+            message={alertMessage}
+            onClose={() => setAlertModalVisible(false)}
+          />
+          <LoadingOverlay isVisible={loading} />
+  
+          {/* Profile Modal */}
+          <Modal
+            animationType="slide"
+            transparent={true}
+            visible={profileModalVisible}
+            onRequestClose={() => setProfileModalVisible(false)}
+          >
+            <View style={styles.modalContainer}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalHeader}>Edit Profile</Text>
+                <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
+                  {userProfile.profileImage ? (
+                    <Image source={{ uri: userProfile.profileImage }} style={styles.profileImage} />
+                  ) : (
+                    <Text style={styles.imagePickerText}>Upload Profile Picture</Text>
                   )}
-                  <TouchableOpacity style={styles.modalButton} onPress={saveSettings}>
-                    <Text style={styles.modalButtonText}>Save Settings</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setSettingsModalVisible(false)}>
-                    <Text style={styles.modalButtonText}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
+                </TouchableOpacity>
+                <ScrollView style={styles.inputScrollView}>
+                  <Formik
+                    initialValues={userProfile}
+                    onSubmit={saveProfile}
+                    validationSchema={Yup.object().shape({
+                      name: Yup.string().required('Name is required'),
+                      age: Yup.number().required('Age is required').positive().integer(),
+                      gender: Yup.string().required('Gender is required'),
+                      feet: Yup.number().required('Height (feet) is required').positive().integer(),
+                      inches: Yup.number().required('Height (inches) is required').min(0).max(11).integer(),
+                      weight: Yup.number().required('Weight is required').positive(),
+                      goal: Yup.string().required('Fitness goal is required'),
+                      fitnessLevel: Yup.string().required('Fitness level is required'),
+                      daysPerWeek: Yup.number().required('Days per week is required').min(1).max(7).integer(),
+                      bio: Yup.string(),
+                      interests: Yup.string()
+                    })}
+                  >
+                    {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
+                      <>
+                        {Object.keys(userProfile).map((key) => (
+                          <View key={key}>
+                            {key !== 'profileImage' && (
+                              <TextInput
+                                style={styles.input}
+                                placeholder={key.charAt(0).toUpperCase() + key.slice(1)}
+                                value={values[key as keyof UserProfile]?.toString()}
+                                onChangeText={handleChange(key)}
+                                onBlur={handleBlur(key)}
+                                placeholderTextColor="#ccc"
+                                keyboardType={key === 'age' || key === 'weight' || key === 'feet' || key === 'inches' || key === 'daysPerWeek' ? 'numeric' : 'default'}
+                              />
+                            )}
+                            {errors[key as keyof UserProfile] && touched[key as keyof UserProfile] && (
+                              <Text style={styles.errorText}>{errors[key as keyof UserProfile]}</Text>
+                            )}
+                          </View>
+                        ))}
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Workout Path (e.g., muscle builder, weight loss)"
+                          value={workoutPath}
+                          onChangeText={setWorkoutPath}
+                          placeholderTextColor="#ccc"
+                        />
+                        <TouchableOpacity style={styles.modalButton} onPress={() => handleSubmit()}>
+                          <Text style={styles.modalButtonText}>Save</Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
+                  </Formik>
+                </ScrollView>
+                <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setProfileModalVisible(false)}>
+                  <Text style={styles.modalButtonText}>Cancel</Text>
+                </TouchableOpacity>
               </View>
-            </Modal>
-    
-            {/* Feedback Modal */}
-            <Modal
-              animationType="slide"
-              transparent={true}
-              visible={feedbackModalVisible}
-              onRequestClose={() => setFeedbackModalVisible(false)}
-            >
-              <View style={styles.modalContainer}>
-                <View style={styles.modalContent}>
-                  <Text style={styles.modalHeader}>Workout Feedback</Text>
-                  <Text style={styles.modalText}>How was your workout?</Text>
-                  <TouchableOpacity style={styles.feedbackOption} onPress={() => handleWorkoutCompletion('easy')}>
-                    <Text style={styles.feedbackOptionText}>Easy</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.feedbackOption} onPress={() => handleWorkoutCompletion('just right')}>
-                    <Text style={styles.feedbackOptionText}>Just Right</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.feedbackOption} onPress={() => handleWorkoutCompletion('hard')}>
-                    <Text style={styles.feedbackOptionText}>Hard</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setFeedbackModalVisible(false)}>
-                    <Text style={styles.modalButtonText}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </Modal>
-    
-            {/* Achievements Modal */}
-            <AchievementsModal
-              visible={achievementsModalVisible}
-              onClose={() => setAchievementsModalVisible(false)}
-              userProfile={userProfile}
-              achievements={achievements}
-            />
-    
-            {/* Recommendation UI */}
-            <View style={styles.recommendationContainer}>
-              {workoutAnalysis && (
-                <Text style={styles.recommendationText}>
-                  {workoutAnalysis.recommendation}
-                </Text>
-              )}
             </View>
-    
-          </SafeAreaView>
-        </ErrorBoundary>
-      );
-    };                     
+          </Modal>
+  
+          {/* BMI Modal */}
+          <Modal
+            animationType="slide"
+            transparent={true}
+            visible={bmiModalVisible}
+            onRequestClose={() => setBmiModalVisible(false)}
+          >
+            <View style={styles.modalContainer}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalHeader}>Calculate BMI</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Current Weight (lbs)"
+                  value={currentWeight}
+                  onChangeText={setCurrentWeight}
+                  keyboardType="numeric"
+                  placeholderTextColor="#ccc"
+                />
+                <TouchableOpacity style={styles.modalButton} onPress={calculateBMI}>
+                  <Text style={styles.modalButtonText}>Calculate</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setBmiModalVisible(false)}>
+                  <Text style={styles.modalButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+  
+          {/* Settings Modal */}
+          <Modal
+            animationType="slide"
+            transparent={true}
+            visible={settingsModalVisible}
+            onRequestClose={() => setSettingsModalVisible(false)}
+          >
+            <View style={styles.modalContainer}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalHeader}>AGiXT Settings</Text>
+                <View style={styles.demoModeSwitchContainer}>
+                  <Text style={styles.demoModeSwitchText}>Demo Mode</Text>
+                  <Switch
+                    value={isDemoMode}
+                    onValueChange={async (value) => {
+                      setIsDemoMode(value);
+                      await AsyncStorage.setItem('demoMode', value.toString());
+                      // Reload the app after saving settings
+                      Updates.reloadAsync();
+                    }}
+                    trackColor={{ false: '#767577', true: '#FFD700' }}
+                    thumbColor={isDemoMode ? '#f4f3f4' : '#f4f3f4'}
+                  />
+                </View>
+                {!isDemoMode && (
+                  <>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="API Key"
+                      value={apiKey}
+                      onChangeText={setApiKey}
+                      placeholderTextColor="#ccc"
+                      secureTextEntry
+                    />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="API URI"
+                      value={apiUri}
+                      onChangeText={setApiUri}
+                      placeholderTextColor="#ccc"
+                    />
+                  </>
+                )}
+                <TouchableOpacity style={styles.modalButton} onPress={saveSettings}>
+                  <Text style={styles.modalButtonText}>Save Settings</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setSettingsModalVisible(false)}>
+                  <Text style={styles.modalButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+  
+          {/* Feedback Modal */}
+          <Modal
+            animationType="slide"
+            transparent={true}
+            visible={feedbackModalVisible}
+            onRequestClose={() => setFeedbackModalVisible(false)}
+          >
+            <View style={styles.modalContainer}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalHeader}>Workout Feedback</Text>
+                <Text style={styles.modalText}>How was your workout?</Text>
+                <TouchableOpacity style={styles.feedbackOption} onPress={() => handleWorkoutCompletion('easy')}>
+                  <Text style={styles.feedbackOptionText}>Easy</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.feedbackOption} onPress={() => handleWorkoutCompletion('just right')}>
+                  <Text style={styles.feedbackOptionText}>Just Right</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.feedbackOption} onPress={() => handleWorkoutCompletion('hard')}>
+                  <Text style={styles.feedbackOptionText}>Hard</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setFeedbackModalVisible(false)}>
+                  <Text style={styles.modalButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+  
+          {/* Achievements Modal */}
+          <AchievementsModal
+            visible={achievementsModalVisible}
+            onClose={() => setAchievementsModalVisible(false)}
+            userProfile={userProfile}
+            achievements={achievements}
+          />
+  
+          {/* Recommendation UI */}
+          <View style={styles.recommendationContainer}>
+            {workoutAnalysis && (
+              <Text style={styles.recommendationText}>
+                {workoutAnalysis.recommendation}
+              </Text>
+            )}
+          </View>
+  
+        </SafeAreaView>
+      </ErrorBoundary>
+    );
+  };                     
+  
 
 // Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0, // Android status bar padding
   },
   gradient: {
     position: 'absolute',
@@ -2283,9 +2289,8 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   animation: {
-    width: 25,
-    height: 25,
-    alignSelf: 'center',
+    width: 150,
+    height: 150,
   },
   tabContent: {
     flex: 1,
@@ -2744,6 +2749,15 @@ const styles = StyleSheet.create({
   demoModeSwitchText: {
     color: '#fff',
     fontSize: 16,
+  },
+  loadingText: {
+    color: '#FFD700',
+    marginTop: 10,
+  },
+  animationContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
   },
 });
 
