@@ -517,31 +517,34 @@ const WorkoutSelectionScreen: React.FC<WorkoutSelectionScreenProps> = ({ navigat
 
   return (
     <View style={styles.container}>
-      <Text style={styles.questionText}>Where will you be working out?</Text>
-      {['Home', 'Gym', 'Outdoors'].map(option => (
-        <TouchableOpacity
-          key={option}
-          style={[styles.optionButton, preferences.location === option && styles.selectedOption]}
-          onPress={() => handleSelection('location', option)}
-        >
-          <Text style={styles.optionText}>{option}</Text>
-        </TouchableOpacity>
-      ))}
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <Text style={styles.questionText}>Where will you be working out?</Text>
+        {['Home', 'Gym', 'Outdoors'].map(option => (
+          <TouchableOpacity
+            key={option}
+            style={[styles.optionButton, preferences.location === option && styles.selectedOption]}
+            onPress={() => handleSelection('location', option)}
+          >
+            <Text style={styles.optionText}>{option}</Text>
+          </TouchableOpacity>
+        ))}
 
-      <Text style={styles.questionText}>What equipment do you have?</Text>
-      {['Dumbbells', 'Barbell', 'Resistance Bands', 'None'].map(option => (
-        <TouchableOpacity
-          key={option}
-          style={[styles.optionButton, preferences.equipment.includes(option) && styles.selectedOption]}
-          onPress={() => handleSelection('equipment', option)}
-        >
-          <Text style={styles.optionText}>{option}</Text>
+        <Text style={styles.questionText}>What equipment do you have?</Text>
+        {['Dumbbells', 'Barbell', 'Resistance Bands', 'None'].map(option => (
+          <TouchableOpacity
+            key={option}
+            style={[styles.optionButton, preferences.equipment.includes(option) && styles.selectedOption]}
+            onPress={() => handleSelection('equipment', option)}
+          >
+            <Text style={styles.optionText}>{option}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity style={styles.generateWorkoutButton} onPress={handleComplete}>
+          <Text style={styles.generateWorkoutButtonText}>Generate Workout</Text>
         </TouchableOpacity>
-      ))}
-
-      <TouchableOpacity style={styles.generateWorkoutButton} onPress={handleComplete}>
-        <Text style={styles.generateWorkoutButtonText}>Generate Workout</Text>
-      </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -2224,7 +2227,6 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',
-    marginTop: 20,
     shadowColor: '#FFA500',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.5,
@@ -2676,7 +2678,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFD700',
     marginBottom: 20,
-    textAlign: 'center',
+    marginTop: 20,
   },
   optionText: {
     fontSize: 18,
@@ -2868,6 +2870,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a1a',
     height: 60,
     paddingBottom: 5,
+  },
+  buttonContainer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+  },
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 100, // Add extra padding at the bottom
   },
 });
 
