@@ -52,5 +52,5 @@ We welcome contributions from the community! Please feel free to submit pull req
 We extend our gratitude to the following individuals and projects for their invaluable contributions:
 
 - **JoshXT AGiXT:** The core AGiXT platform, powering the intelligent AI features of this app. [![GitHub](https://img.shields.io/badge/GitHub-AGiXT%20Core-blue?logo=github&style=plastic)](https://github.com/Josh-XT/AGiXT)
-- **JamesonRGrieve TypeScript SDK:** The TypeScript SDK for seamless integration with the AGiXT platform. [![GitHub](https://img.shields.io/badge/GitHub-AGiXT%20TypeScript%20SDK-blue?logo=github&style=plastic)](https://github.com/AGiXT/typescript-sdk)
+- **AGiXT TypeScript SDK:** The TypeScript SDK for seamless integration with the AGiXT platform. [![GitHub](https://img.shields.io/badge/GitHub-AGiXT%20TypeScript%20SDK-blue?logo=github&style=plastic)](https://github.com/AGiXT/tJypescript-sdk)
 
